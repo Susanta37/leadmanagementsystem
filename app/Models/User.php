@@ -10,7 +10,7 @@ use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    use HasApiTokens,HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable;
 
     protected $fillable = [
         'name',
@@ -32,7 +32,7 @@ class User extends Authenticatable
         'designation' => 'string', // Enum: employee, team_lead, operations, admin
         'email_verified_at' => 'datetime',
     ];
-public function getProfilePhotoUrlAttribute()
+    public function getProfilePhotoUrlAttribute()
     {
         return $this->profile_photo ? Storage::url($this->profile_photo) : null;
     }
@@ -53,7 +53,10 @@ public function getProfilePhotoUrlAttribute()
     {
         return $this->hasMany(User::class, 'created_by');
     }
-
+    public function teamMembers()
+    {
+        return $this->hasMany(User::class, 'team_lead_id');
+    }
     // Team Lead of this user (for Employees)
     public function teamLead()
     {
