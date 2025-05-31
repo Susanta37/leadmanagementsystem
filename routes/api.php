@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Auth\AuthenticationController;
 use App\Http\Controllers\Api\LeadController;
 use App\Http\Controllers\Api\TaskController;
 use App\Http\Controllers\Api\AttendanceController;
+use App\Http\Controllers\Api\TeamController;
 
 
 Route::post('/register', [AuthenticationController::class, 'register']);
@@ -36,7 +37,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/tasks/{task}', [TaskController::class, 'destroy']);
 
     //attendance
-    Route::get('/attendances', [AttendanceController::class, 'index']);        
-    Route::post('/attendances', [AttendanceController::class, 'store']);      
-    Route::put('/attendances/{attendance}', [AttendanceController::class, 'update']); 
+    Route::get('/attendances', [AttendanceController::class, 'index']);
+    Route::post('/attendances', [AttendanceController::class, 'store']);
+    Route::put('/attendances/{attendance}', [AttendanceController::class, 'update']);
+
+    //Team view api
+    Route::get('/teams', [TeamController::class, 'index']);
 });
