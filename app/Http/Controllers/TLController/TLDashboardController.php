@@ -65,11 +65,29 @@ class TLDashboardController extends Controller
     //     return redirect()->route('team_lead.employees.index')->with('success', 'Employee created successfully.');
     // }
 
-    // public function indexLeads()
-    // {
-    //     $leads = Auth::user()->assignedLeads()->whereIn('status', ['pending'])->paginate(10);
-    //     return view('team-lead.leads.index', compact('leads'));
-    // }
+    public function indexLeads()
+    {
+        $leads = Auth::user()->assignedLeads()->whereIn('status', ['pending'])->paginate(10);
+        return view('TeamLead.leads.index', compact('leads'));
+    }
+
+    public function indexTeams()
+    {
+      
+        return view('TeamLead.teams.index');
+    }
+    public function indexReports()
+    {
+      
+        return view('TeamLead.reports.index');
+    }
+    public function indexSetting(Request $request)
+    {
+      
+        return view('TeamLead.settings.index' ,[
+            'user' => $request->user(),
+        ]);
+    }
 
     // public function approveLead(Lead $lead)
     // {
@@ -104,11 +122,11 @@ class TLDashboardController extends Controller
     //     return redirect()->route('team_lead.leads.index')->with('success', 'Lead rejected.');
     // }
 
-    // public function indexTasks()
-    // {
-    //     $tasks = Auth::user()->assignedTasks()->paginate(10);
-    //     return view('team-lead.tasks.index', compact('tasks'));
-    // }
+    public function indexTasks()
+    {
+        $tasks = Auth::user()->assignedTasks()->paginate(10);
+        return view('TeamLead.task.index', compact('tasks'));
+    }
 
     // public function createTask()
     // {

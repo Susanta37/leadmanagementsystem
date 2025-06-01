@@ -2,11 +2,9 @@
     <div class="sidebar-content">
         <!-- Logo Section -->
         <div class="sidebar-header">
-            <div class="logo">
-                <i class="fas fa-chart-line"></i>
-            </div>
+             <img src="{{ asset('logo1.png') }}" alt="Logo" class="w-10 h-10 rounded-full">
             <div class="logo-text">
-                <h3>Lead Manager</h3>
+                <h3>Teamlead</h3>
                 <span>Dashboard</span>
             </div>
         </div>
@@ -15,54 +13,57 @@
         <nav class="sidebar-nav">
             <ul class="nav-list">
                 <li class="nav-item">
-                    <a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
+                    <a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('team_lead.dashboard') ? 'active' : '' }}">
                         <i class="fas fa-home"></i>
                         <span>Dashboard</span>
                     </a>
                 </li>
                 
                 <li class="nav-item">
-                    <a href="#" class="nav-link has-submenu" data-submenu="leads">
+                    <a href="#" 
+                       class="nav-link has-submenu {{ request()->routeIs('team_lead.leads.index') ? 'active' : '' }}" 
+                       data-submenu="leads">
                         <i class="fas fa-users"></i>
-                        <span>Leads</span>
+                        <span>Manage Leads</span>
                         <i class="fas fa-chevron-down submenu-arrow"></i>
                     </a>
-                    <ul class="submenu" id="leads-submenu">
-                        <li><a href="">All Leads</a></li>
-                        <li><a href="">Add Lead</a></li>
-                        <li><a href="">Hot Leads</a></li>
-                        <li><a href="">Cold Leads</a></li>
+                    <ul class="submenu {{ request()->routeIs('team_lead.leads.index') ? 'active' : '' }}" id="leads-submenu">
+                        <li>
+                            <a href="{{ route('team_lead.leads.index') }}" 
+                               class="{{ request()->routeIs('team_lead.leads.index') ? 'active' : '' }}">
+                                All Leads
+                            </a>
+                        </li>
                     </ul>
                 </li>
 
                 <li class="nav-item">
                     <a href="#" class="nav-link has-submenu" data-submenu="campaigns">
                         <i class="fas fa-bullhorn"></i>
-                        <span>Campaigns</span>
+                        <span>Manage Team</span>
                         <i class="fas fa-chevron-down submenu-arrow"></i>
                     </a>
                     <ul class="submenu" id="campaigns-submenu">
-                        <li><a href="">All Campaigns</a></li>
-                        <li><a href="">Create Campaign</a></li>
-                        <li><a href="">Analytics</a></li>
+                        <li><a href="{{ route('team_lead.teams.index') }}">All Team</a></li>
                     </ul>
                 </li>
 
-                <li class="nav-item">
+                {{-- <li class="nav-item">
                     <a href="" class="nav-link {{ request()->routeIs('analytics') ? 'active' : '' }}">
                         <i class="fas fa-chart-bar"></i>
                         <span>Analytics</span>
                     </a>
-                </li>
+                </li> --}}
 
                 <li class="nav-item">
-                    <a href="" class="nav-link {{ request()->routeIs('tasks') ? 'active' : '' }}">
+                    <a href="{{ route('team_lead.tasks.index') }}" class="nav-link {{ request()->routeIs('team_lead,tasks.index') ? 'active' : '' }}">
                         <i class="fas fa-tasks"></i>
                         <span>Tasks</span>
                         <span class="badge">12</span>
                     </a>
                 </li>
-
+                
+                
                 <li class="nav-item">
                     <a href="#" class="nav-link has-submenu" data-submenu="reports">
                         <i class="fas fa-file-alt"></i>
@@ -70,21 +71,14 @@
                         <i class="fas fa-chevron-down submenu-arrow"></i>
                     </a>
                     <ul class="submenu" id="reports-submenu">
-                        <li><a href="">Sales Report</a></li>
-                        <li><a href="">Conversion Report</a></li>
-                        <li><a href="">Performance</a></li>
+                        <li><a href="{{ route('team_lead.reports.index') }}">All Reports</a></li>
+                      
                     </ul>
                 </li>
 
-                <li class="nav-item">
-                    <a href="" class="nav-link {{ request()->routeIs('team') ? 'active' : '' }}">
-                        <i class="fas fa-user-friends"></i>
-                        <span>Team</span>
-                    </a>
-                </li>
 
                 <li class="nav-item">
-                    <a href="" class="nav-link {{ request()->routeIs('settings') ? 'active' : '' }}">
+                    <a href="{{ route('team_lead.setting.index')}}" class="nav-link {{ request()->routeIs('team_lead.settings.*') ? 'active' : '' }}">
                         <i class="fas fa-cog"></i>
                         <span>Settings</span>
                     </a>

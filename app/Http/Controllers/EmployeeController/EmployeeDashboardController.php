@@ -26,10 +26,7 @@ class EmployeeDashboardController extends Controller
         return view('Employee.leads.index', compact('leads'));
     }
 
-    public function createLead()
-    {
-        return view('Employee.leads.create');
-    }
+   
 
     // public function storeLead(Request $request)
     // {
