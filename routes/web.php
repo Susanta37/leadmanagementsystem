@@ -63,7 +63,7 @@ Route::middleware(['auth', 'designation:employee'])->prefix('employee')->name('e
 // Team Lead routes (accessible only by users with designation 'team_lead')
 Route::middleware(['auth', 'designation:team_lead'])->prefix('team-lead')->name('team_lead.')->group(function () {
     Route::get('/dashboard', [TLDashboardController::class, 'dashboard'])->name('dashboard');
-    Route::get('/employees', [TLDashboardController::class, 'indexEmployees'])->name('employees.index');
+    Route::get('/teams', [TLDashboardController::class, 'indexTeams'])->name('teams.index');
     Route::get('/employees/create', [TLDashboardController::class, 'createEmployee'])->name('employees.create');
     Route::post('/employees', [TLDashboardController::class, 'storeEmployee'])->name('employees.store');
     Route::get('/leads', [TLDashboardController::class, 'indexLeads'])->name('leads.index');
@@ -72,6 +72,8 @@ Route::middleware(['auth', 'designation:team_lead'])->prefix('team-lead')->name(
     Route::get('/tasks', [TLDashboardController::class, 'indexTasks'])->name('tasks.index');
     Route::get('/tasks/create', [TLDashboardController::class, 'createTask'])->name('tasks.create');
     Route::post('/tasks', [TLDashboardController::class, 'storeTask'])->name('tasks.store');
+    Route::get('/reports', [TLDashboardController::class, 'indexReports'])->name('reports.index');
+    Route::get('/setting', [TLDashboardController::class, 'indexSetting'])->name('setting.index');
     Route::post('/tasks/bulk-assign', [TLDashboardController::class, 'bulkAssignTasks'])->name('tasks.bulk_assign');
     Route::get('/notifications', [TLDashboardController::class, 'indexNotifications'])->name('notifications.index');
 });

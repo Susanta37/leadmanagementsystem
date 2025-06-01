@@ -7,7 +7,7 @@
                 <img src="{{ asset('logo1.png') }}" alt="Logo" class="w-10 h-10 rounded-full">
            
             <div class="logo-text">
-                <h3>Lead Manager</h3>
+                <h3>Employee</h3>
                 <span>Dashboard</span>
             </div>
         </div>
