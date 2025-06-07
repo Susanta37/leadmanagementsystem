@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Admin\UserCreateController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\Auth\AuthenticationController;
@@ -15,6 +16,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthenticationController::class, 'logout']);
     Route::put('/profile', [AuthenticationController::class, 'updateProfile']);
     Route::post('/profile/photo', [AuthenticationController::class, 'updateProfilePhoto']);
+     Route::post('/users', [UserCreateController::class, 'store'])->name('api.users.store');
     Route::get('/user', function (Request $request) {
         return $request->user();
     });

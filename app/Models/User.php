@@ -42,6 +42,36 @@ class User extends Authenticatable
     {
         return $value ? Storage::url($value) : null;
     }
+ /**
+     * Get the URL for the PAN card.
+     *
+     * @return string|null
+     */
+    public function getPanCardUrlAttribute()
+    {
+        return $this->pan_card ? Storage::url($this->pan_card) : null;
+    }
+
+    /**
+     * Get the URL for the Aadhar card.
+     *
+     * @return string|null
+     */
+    public function getAadharCardUrlAttribute()
+    {
+        return $this->aadhar_card ? Storage::url($this->aadhar_card) : null;
+    }
+
+    /**
+     * Get the URL for the signature.
+     *
+     * @return string|null
+     */
+    public function getSignatureUrlAttribute()
+    {
+        return $this->signature ? Storage::url($this->signature) : null;
+    }
+
     // User who created this user (Admin or Team Lead)
     public function creator()
     {

@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Storage;
 
 class LeadController extends Controller
 {
@@ -18,25 +19,52 @@ class LeadController extends Controller
      * @param Request $request
      * @return JsonResponse
      */
-    public function index(Request $request): JsonResponse
+  public function index(Request $request): JsonResponse
     {
         $user = Auth::user();
 
-        // Check if the user is a team lead (assuming 'role' column exists in users table)
-        if ($user->designation === 'team_lead') {
-            // Team lead sees all leads
-            $leads = Lead::with(['employee', 'teamLead'])->get();
-        } else {
-            // Employee sees only their own leads
-            $leads = Lead::with(['employee', 'teamLead'])
-                ->where('employee_id', $user->id)
-                ->get();
+        // Base query based on user role
+        $query = Lead::query();
+        if ($user->designation !== 'team_lead') {
+            $query->where('employee_id', $user->id);
         }
+
+        // Get all leads with relationships
+        $leads = $query->with(['employee', 'teamLead'])->get();
+
+        // Aggregate data
+        $totalLeads = [
+            'count' => $query->count(),
+            'total_amount' => $query->sum('lead_amount'),
+        ];
+
+        $approvedLeads = [
+            'count' => $query->clone()->where('status', 'approved')->count(),
+            'total_amount' => $query->clone()->where('status', 'approved')->sum('lead_amount'),
+        ];
+
+        $disbursedLeads = [
+            'count' => $query->clone()->where('status', 'completed')->count(),
+            'total_amount' => $query->clone()->where('status', 'completed')->sum('lead_amount'),
+        ];
+
+        $pendingLeads = [
+            'count' => $query->clone()->where('status', 'pending')->count(),
+            'total_amount' => $query->clone()->where('status', 'pending')->sum('lead_amount'),
+        ];
 
         return response()->json([
             'status' => 'success',
             'message' => 'Leads retrieved successfully',
-            'data' => $leads,
+            'data' => [
+                'leads' => $leads,
+                'aggregates' => [
+                    'total_leads' => $totalLeads,
+                    'approved_leads' => $approvedLeads,
+                    'disbursed_leads' => $disbursedLeads,
+                    'pending_leads' => $pendingLeads,
+                ],
+            ],
         ], 200);
     }
 
@@ -62,6 +90,8 @@ class LeadController extends Controller
             'remarks' => 'nullable|string',
             'status' => 'required|string|in:pending,approved,rejected,completed',
             'team_lead_id' => 'required|exists:users,id',
+            'lead_type' => 'required|string|in:personal_loan,home_loan,business_loan,creditcard_loan',
+            'voice_recording' => 'nullable|file|mimes:mp3,wav|max:10240',
         ]);
 
         if ($validator->fails()) {
@@ -88,6 +118,11 @@ class LeadController extends Controller
             ], 409); // 409 Conflict
         }
 
+          $voiceRecordingPath = null;
+        if ($request->hasFile('voice_recording')) {
+            $voiceRecordingPath = $request->file('voice_recording')->store('voice_recordings', 'public');
+        }
+        $finalvoiceRecordingPath= '/storage/' . $voiceRecordingPath; 
         $lead = Lead::create([
             'employee_id' => Auth::id(),
             'team_lead_id' => $request->team_lead_id,
@@ -103,6 +138,8 @@ class LeadController extends Controller
             'expected_month' => $request->expected_month,
             'remarks' => $request->remarks,
             'status' => $request->status,
+            'lead_type' => $request->lead_type,
+            'voice_recording' => $finalvoiceRecordingPath,
         ]);
 
         $lead->load(['employee', 'teamLead']);
@@ -162,6 +199,8 @@ class LeadController extends Controller
             'remarks' => 'nullable|string',
             'status' => 'sometimes|string|in:pending,approved,rejected,completed',
             'team_lead_id' => 'sometimes|exists:users,id',
+            'lead_type' => 'required|string|in:personal_loan,home_loan,business_loan,creditcard_loan',
+            'voice_recording' => 'nullable|file|mimes:mp3,wav|max:10240',
         ]);
 
         if ($validator->fails()) {
@@ -185,8 +224,18 @@ class LeadController extends Controller
             'expected_month',
             'remarks',
             'status',
-            'team_lead_id'
+            'team_lead_id',
+            'lead_type',
         ]));
+         if ($request->hasFile('voice_recording')) {
+            // Delete old recording if exists
+            if ($lead->voice_recording) {
+                Storage::disk('public')->delete($lead->voice_recording);
+            }
+            $data['voice_recording'] = $request->file('voice_recording')->store('voice_recordings', 'public');
+        }
+
+        $lead->update($data);
 
         $lead->load(['employee', 'teamLead']);
 
