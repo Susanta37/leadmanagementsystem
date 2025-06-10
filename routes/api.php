@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Auth\AuthenticationController;
 use App\Http\Controllers\Api\LeadController;
 use App\Http\Controllers\Api\TaskController;
 use App\Http\Controllers\Api\AttendanceController;
+use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\TeamController;
 
 
@@ -23,12 +24,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/change-password', [AuthenticationController::class, 'changePassword']);
     Route::post('/forgot-password', [AuthenticationController::class, 'forgotPassword']);
 
+    //Dashboard API
+    Route::get('/dashboard', [DashboardController::class, 'index']);
     //Lead Api
 
     Route::get('/leads', [LeadController::class, 'index']);
     Route::post('/leads', [LeadController::class, 'store']);
+    Route::get('/leads/{lead}/edit', [LeadController::class, 'edit']);
     Route::get('/leads/{lead}', [LeadController::class, 'show']);
-    Route::put('/leads/{lead}', [LeadController::class, 'update']);
+    Route::post('/leads/{lead}', [LeadController::class, 'update']);
     Route::delete('/leads/{lead}', [LeadController::class, 'destroy']);
 
     // Task API (Add this for full CRUD)
@@ -41,7 +45,7 @@ Route::middleware('auth:sanctum')->group(function () {
     //attendance
     Route::get('/attendances', [AttendanceController::class, 'index']);
     Route::post('/attendances', [AttendanceController::class, 'store']);
-    Route::put('/attendances/{attendance}', [AttendanceController::class, 'update']);
+    Route::post('/attendances/{attendance}', [AttendanceController::class, 'update']);
 
     //Team view api
     Route::get('/teams', [TeamController::class, 'index']);

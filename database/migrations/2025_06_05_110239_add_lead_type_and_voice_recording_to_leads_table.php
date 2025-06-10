@@ -15,6 +15,7 @@ return new class extends Migration
 
             $table->string('lead_type')->nullable()->after('status');
             $table->string('voice_recording')->nullable()->after('lead_type');
+            $table->boolean('is_personal_lead')->nullable()->after('status')->default(true);
       
         });
     }
@@ -25,7 +26,7 @@ return new class extends Migration
     public function down(): void
     {
        Schema::table('leads', function (Blueprint $table) {
-            $table->dropColumn(['lead_type', 'voice_recording']);
+            $table->dropColumn(['lead_type', 'voice_recording', 'is_personal_lead']);
         });
     }
 };

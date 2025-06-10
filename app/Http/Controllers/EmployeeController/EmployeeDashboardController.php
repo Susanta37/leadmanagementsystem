@@ -21,11 +21,11 @@ class EmployeeDashboardController extends Controller
         return view('Employee.dashboard', compact('leads', 'tasks', 'notifications'));
     }
 
-    public function indexLeads()
-    {
-        $leads = Auth::user()->createdLeads()->paginate(10);
-        return view('Employee.leads.index', compact('leads'));
-    }
+    // public function indexLeads()
+    // {
+    //     $leads = Auth::user()->createdLeads()->paginate(10);
+    //     return view('Employee.leads.index', compact('leads'));
+    // }
 
    
 

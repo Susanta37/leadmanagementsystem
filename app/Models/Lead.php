@@ -27,6 +27,7 @@ class Lead extends Model
         'status',
         'lead_type',
         'voice_recording',
+        'is_personal_lead'
     ];
 
     protected $casts = [
@@ -35,7 +36,11 @@ class Lead extends Model
         'salary' => 'decimal:2',
         'success_percentage' => 'integer',
         'status' => 'string',
-        'lead_type' => 'string',
+        'lead_type' => 'string', 
+        'is_personal_lead' => 'boolean',
+    ];
+    protected $attributes = [
+        'is_personal_lead' => true,
     ];
  public function getVoiceRecordingUrlAttribute()
     {
