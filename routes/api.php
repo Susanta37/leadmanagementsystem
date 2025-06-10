@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\TaskController;
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\LeaveController;
+use App\Http\Controllers\Api\SalarySlipController;
 use App\Http\Controllers\Api\TeamController;
 
 
@@ -54,4 +55,8 @@ Route::middleware('auth:sanctum')->group(function () {
     //leave api
     Route::get('/leaves', [LeaveController::class, 'index']);
     Route::post('/leaves', [LeaveController::class, 'store']);
+    //salary api
+    Route::get('/salary-slips', [SalarySlipController::class, 'index']);
+    Route::get('/salary-slips/{id}/download', [SalarySlipController::class, 'downloadPdf']);
+
 });
