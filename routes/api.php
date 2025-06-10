@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\LeadController;
 use App\Http\Controllers\Api\TaskController;
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\LeaveController;
 use App\Http\Controllers\Api\TeamController;
 
 
@@ -17,7 +18,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthenticationController::class, 'logout']);
     Route::put('/profile', [AuthenticationController::class, 'updateProfile']);
     Route::post('/profile/photo', [AuthenticationController::class, 'updateProfilePhoto']);
-     Route::post('/users', [UserCreateController::class, 'store'])->name('api.users.store');
+    Route::post('/users', [UserCreateController::class, 'store'])->name('api.users.store');
     Route::get('/user', function (Request $request) {
         return $request->user();
     });
@@ -49,4 +50,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     //Team view api
     Route::get('/teams', [TeamController::class, 'index']);
+
+    //leave api
+    Route::get('/leaves', [LeaveController::class, 'index']);
+    Route::post('/leaves', [LeaveController::class, 'store']);
 });

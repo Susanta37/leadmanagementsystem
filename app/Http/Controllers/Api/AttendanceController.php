@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Attendance;
+use App\Models\Leave;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Validator;
@@ -80,37 +81,110 @@ class AttendanceController extends Controller
         ]);
     }
 
- public function store(Request $request) 
+//  public function store(Request $request) 
+// {
+//     $user = Auth::user();
+    
+//     $validator = Validator::make($request->all(), [
+//         'checkin_image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048', // Actual file validation
+//         'check_in_location' => 'nullable|string|max:255',
+//         'check_in_coordinates' => 'nullable|string|max:255',
+//         'notes' => 'nullable|string',
+//     ]);
+    
+//     if ($validator->fails()) {
+//         return response()->json(['status' => 'error', 'errors' => $validator->errors()], 422);
+//     }
+    
+//     $imagePath = null;
+//      if ($request->hasFile('checkin_image')) {
+//         $storedPath = $request->file('checkin_image')->store('attendance/checkin', 'public');
+//         $imagePath = '/storage/' . $storedPath; 
+//     }
+    
+//     $attendance = Attendance::create([
+//         'employee_id' => $user->id,
+//         'date' => today(),
+//         'check_in' => now(),
+//         'check_in_location' => $request->check_in_location,
+//         'check_in_coordinates' => $request->check_in_coordinates,
+//         'checkin_image' => $imagePath, // Store file path, not raw request data
+//         'notes' => $request->notes,
+//     ]);
+    
+//     return response()->json([
+//         'status' => 'success',
+//         'message' => 'Check-in recorded',
+//         'data' => $attendance,
+//     ]);
+// }
+public function store(Request $request) 
 {
     $user = Auth::user();
+    $today = Carbon::today();
+
+
+    if ($today->isSunday()) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Attendance is not allowed on Sunday.'
+        ], 403);
+    }
+
+
+    $alreadyCheckedIn = Attendance::where('employee_id', $user->id)
+        ->whereDate('date', $today)
+        ->exists();
+
+    if ($alreadyCheckedIn) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'You have already checked in today.'
+        ], 403);
+    }
+
     
+    $leaveToday = Leave::where('user_id', $user->id)
+        ->where('status', 'approved')
+        ->whereDate('start_date', '<=', $today)
+        ->whereDate('end_date', '>=', $today)
+        ->first();
+
+    if ($leaveToday) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Attendance not allowed. You are on approved leave today.'
+        ], 403);
+    }
+
+
     $validator = Validator::make($request->all(), [
-        'checkin_image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048', // Actual file validation
+        'checkin_image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
         'check_in_location' => 'nullable|string|max:255',
         'check_in_coordinates' => 'nullable|string|max:255',
         'notes' => 'nullable|string',
     ]);
-    
+
     if ($validator->fails()) {
         return response()->json(['status' => 'error', 'errors' => $validator->errors()], 422);
     }
-    
+
     $imagePath = null;
-     if ($request->hasFile('checkin_image')) {
+    if ($request->hasFile('checkin_image')) {
         $storedPath = $request->file('checkin_image')->store('attendance/checkin', 'public');
-        $imagePath = '/storage/' . $storedPath; 
+        $imagePath = '/storage/' . $storedPath;
     }
-    
+
     $attendance = Attendance::create([
         'employee_id' => $user->id,
-        'date' => today(),
+        'date' => $today,
         'check_in' => now(),
         'check_in_location' => $request->check_in_location,
         'check_in_coordinates' => $request->check_in_coordinates,
-        'checkin_image' => $imagePath, // Store file path, not raw request data
+        'checkin_image' => $imagePath,
         'notes' => $request->notes,
     ]);
-    
+
     return response()->json([
         'status' => 'success',
         'message' => 'Check-in recorded',

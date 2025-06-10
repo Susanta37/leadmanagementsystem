@@ -42,7 +42,7 @@ class User extends Authenticatable
     {
         return $value ? Storage::url($value) : null;
     }
- /**
+    /**
      * Get the URL for the PAN card.
      *
      * @return string|null
@@ -133,5 +133,16 @@ class User extends Authenticatable
     public function notifications()
     {
         return $this->hasMany(Notification::class, 'user_id');
+    }
+
+    public function leaves()
+    {
+        return $this->hasMany(Leave::class, 'user_id');
+    }
+
+    // Leaves received for approval (if this user is HR or team lead)
+    public function receivedLeaveRequests()
+    {
+        return $this->hasMany(Leave::class, 'applied_to');
     }
 }
