@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class Lead extends Model
 {
@@ -24,6 +25,9 @@ class Lead extends Model
         'expected_month',
         'remarks',
         'status',
+        'lead_type',
+        'voice_recording',
+        'is_personal_lead'
     ];
 
     protected $casts = [
@@ -31,8 +35,17 @@ class Lead extends Model
         'lead_amount' => 'decimal:2',
         'salary' => 'decimal:2',
         'success_percentage' => 'integer',
-        'status' => 'string', // Enum: pending, approved, rejected, completed
+        'status' => 'string',
+        'lead_type' => 'string', 
+        'is_personal_lead' => 'boolean',
     ];
+    protected $attributes = [
+        'is_personal_lead' => true,
+    ];
+ public function getVoiceRecordingUrlAttribute()
+    {
+        return $this->voice_recording ? Storage::url($this->voice_recording) : null;
+    }
 
     // Employee who created the lead
     public function employee()

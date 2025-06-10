@@ -4,6 +4,7 @@ use App\Http\Controllers\AdminController\AdminController;
 use App\Http\Controllers\OpearationController\OperationDashboardController;
 use App\Http\Controllers\TLController\TLDashboardController;
 use App\Http\Controllers\EmployeeController\EmployeeDashboardController as EmployeeController;
+use App\Http\Controllers\EmployeeController\WebLeadController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
@@ -45,7 +46,7 @@ Route::middleware('auth')->group(function () {
 // Employee routes (accessible only by users with designation 'employee')
 Route::middleware(['auth', 'designation:employee'])->prefix('employee')->name('employee.')->group(function () {
     Route::get('/dashboard', [EmployeeController::class, 'dashboard'])->name('dashboard');
-    Route::get('/leads', [EmployeeController::class, 'indexLeads'])->name('leads.index');
+    Route::get('/leads', [WebLeadController::class, 'indexLeads'])->name('leads.index');
     Route::get('/leads/create', [EmployeeController::class, 'createLead'])->name('leads.create');
     Route::post('/leads', [EmployeeController::class, 'storeLead'])->name('leads.store');
     Route::get('/leads/{lead}/edit', [EmployeeController::class, 'editLead'])->name('leads.edit');

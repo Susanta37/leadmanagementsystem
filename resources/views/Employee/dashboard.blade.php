@@ -475,7 +475,7 @@
                         </div>
                     </div>
                     <div class="stat-value">12</div>
-                    <div class="stat-label">Hot Leads</div>
+                    <div class="stat-label">Disbursed Leads</div>
                 </div>
 
                 <div class="stat-card">

@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Attendance;
+use App\Models\Leave;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class AttendanceController extends Controller
 {
@@ -79,69 +81,162 @@ class AttendanceController extends Controller
         ]);
     }
 
-    public function store(Request $request)
-    {
-        $user = Auth::user();
+//  public function store(Request $request) 
+// {
+//     $user = Auth::user();
+    
+//     $validator = Validator::make($request->all(), [
+//         'checkin_image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048', // Actual file validation
+//         'check_in_location' => 'nullable|string|max:255',
+//         'check_in_coordinates' => 'nullable|string|max:255',
+//         'notes' => 'nullable|string',
+//     ]);
+    
+//     if ($validator->fails()) {
+//         return response()->json(['status' => 'error', 'errors' => $validator->errors()], 422);
+//     }
+    
+//     $imagePath = null;
+//      if ($request->hasFile('checkin_image')) {
+//         $storedPath = $request->file('checkin_image')->store('attendance/checkin', 'public');
+//         $imagePath = '/storage/' . $storedPath; 
+//     }
+    
+//     $attendance = Attendance::create([
+//         'employee_id' => $user->id,
+//         'date' => today(),
+//         'check_in' => now(),
+//         'check_in_location' => $request->check_in_location,
+//         'check_in_coordinates' => $request->check_in_coordinates,
+//         'checkin_image' => $imagePath, // Store file path, not raw request data
+//         'notes' => $request->notes,
+//     ]);
+    
+//     return response()->json([
+//         'status' => 'success',
+//         'message' => 'Check-in recorded',
+//         'data' => $attendance,
+//     ]);
+// }
+public function store(Request $request) 
+{
+    $user = Auth::user();
+    $today = Carbon::today();
 
-        $validator = Validator::make($request->all(), [
-            'checkin_image' => 'nullable|string|max:1024',
-            'check_in_location' => 'nullable|string|max:255',
-            'check_in_coordinates' => 'nullable|string|max:255',
-            'notes' => 'nullable|string',
-        ]);
 
-        if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'errors' => $validator->errors()], 422);
-        }
-
-        $attendance = Attendance::create([
-            'employee_id' => $user->id,
-            'date' => today(),
-            'check_in' => now(),
-            'check_in_location' => $request->check_in_location,
-            'check_in_coordinates' => $request->check_in_coordinates,
-            'checkin_image' => $request->checkin_image,
-            'notes' => $request->notes,
-        ]);
-
+    if ($today->isSunday()) {
         return response()->json([
-            'status' => 'success',
-            'message' => 'Check-in recorded',
-            'data' => $attendance,
-        ]);
+            'status' => 'error',
+            'message' => 'Attendance is not allowed on Sunday.'
+        ], 403);
     }
 
-    public function update(Request $request, Attendance $attendance)
-    {
-        $user = Auth::user();
 
-        if ($attendance->employee_id !== $user->id) {
-            return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 403);
-        }
+    $alreadyCheckedIn = Attendance::where('employee_id', $user->id)
+        ->whereDate('date', $today)
+        ->exists();
 
-        $validator = Validator::make($request->all(), [
-            'check_out_location' => 'nullable|string|max:255',
-            'check_out_coordinates' => 'nullable|string|max:255',
-            'checkout_image' => 'nullable|string|max:1024',
-            'notes' => 'nullable|string',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'errors' => $validator->errors()], 422);
-        }
-
-        $attendance->update([
-            'check_out' => now(),
-            'check_out_location' => $request->check_out_location,
-            'check_out_coordinates' => $request->check_out_coordinates,
-            'checkout_image' => $request->checkout_image,
-            'notes' => $request->notes ?? $attendance->notes,
-        ]);
-
+    if ($alreadyCheckedIn) {
         return response()->json([
-            'status' => 'success',
-            'message' => 'Check-out updated',
-            'data' => $attendance,
-        ]);
+            'status' => 'error',
+            'message' => 'You have already checked in today.'
+        ], 403);
     }
+
+    
+    $leaveToday = Leave::where('user_id', $user->id)
+        ->where('status', 'approved')
+        ->whereDate('start_date', '<=', $today)
+        ->whereDate('end_date', '>=', $today)
+        ->first();
+
+    if ($leaveToday) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Attendance not allowed. You are on approved leave today.'
+        ], 403);
+    }
+
+
+    $validator = Validator::make($request->all(), [
+        'checkin_image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+        'check_in_location' => 'nullable|string|max:255',
+        'check_in_coordinates' => 'nullable|string|max:255',
+        'notes' => 'nullable|string',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json(['status' => 'error', 'errors' => $validator->errors()], 422);
+    }
+
+    $imagePath = null;
+    if ($request->hasFile('checkin_image')) {
+        $storedPath = $request->file('checkin_image')->store('attendance/checkin', 'public');
+        $imagePath = '/storage/' . $storedPath;
+    }
+
+    $attendance = Attendance::create([
+        'employee_id' => $user->id,
+        'date' => $today,
+        'check_in' => now(),
+        'check_in_location' => $request->check_in_location,
+        'check_in_coordinates' => $request->check_in_coordinates,
+        'checkin_image' => $imagePath,
+        'notes' => $request->notes,
+    ]);
+
+    return response()->json([
+        'status' => 'success',
+        'message' => 'Check-in recorded',
+        'data' => $attendance,
+    ]);
+}
+
+   public function update(Request $request, Attendance $attendance)
+{
+    $user = Auth::user();
+    
+    if ($attendance->employee_id !== $user->id) {
+        return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 403);
+    }
+    
+    $validator = Validator::make($request->all(), [
+        'check_out_location' => 'nullable|string|max:255',
+        'check_out_coordinates' => 'nullable|string|max:255',
+        'checkout_image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048', // Changed to handle file upload
+        'notes' => 'nullable|string',
+    ]);
+    
+    if ($validator->fails()) {
+        return response()->json(['status' => 'error', 'errors' => $validator->errors()], 422);
+    }
+    
+    $checkoutImagePath = $attendance->checkout_image; // Keep existing image if no new one
+    
+    if ($request->hasFile('checkout_image')) {
+        // Delete old checkout image if exists
+        if ($attendance->checkout_image) {
+            $oldPath = str_replace('/storage/', '', $attendance->checkout_image);
+            Storage::disk('public')->delete($oldPath);
+        }
+        
+        // Store new checkout image
+        $storedPath = $request->file('checkout_image')->store('attendance/checkout', 'public');
+        $checkoutImagePath = '/storage/' . $storedPath;
+    }
+    
+    $attendance->update([
+        'check_out' => now(),
+        'check_out_location' => $request->check_out_location,
+        'check_out_coordinates' => $request->check_out_coordinates,
+        'checkout_image' => $checkoutImagePath,
+        'notes' => $request->notes ?? $attendance->notes,
+    ]);
+    
+    return response()->json([
+        'status' => 'success',
+        'message' => 'Check-out updated',
+        'data' => $attendance,
+    ]);
+}
 }

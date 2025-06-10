@@ -434,371 +434,7 @@
         }
     </style>
 </head>
-<body>
-    @include('Employee.Components.sidebar')
-    
-    <div class="main-content">
-        @include('Employee.Components.header', ['title' => 'Leads Management', 'subtitle' => 'Create, view and manage your leads'])
-        
-        <div class="dashboard-container">
-            <!-- Page Header with Filters -->
-            <div class="page-header">
-                <div class="header-content">
-                    <h1 class="page-title">Manage Leads</h1>
-                    <p class="page-subtitle">Create new leads and manage existing ones</p>
-                </div>
-                <div class="filter-section">
-                    <button class="filter-toggle" onclick="toggleFilters()">
-                        <i class="fas fa-filter"></i>
-                        <span>Filters</span>
-                        <i class="fas fa-chevron-down"></i>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Advanced Filters (Hidden by default) -->
-            <div class="advanced-filters" id="advancedFilters">
-                <div class="filters-grid">
-                    <div class="filter-group">
-                        <label for="statusFilter">Status</label>
-                        <select id="statusFilter" class="filter-select" onchange="filterLeads()">
-                            <option value="">All Statuses</option>
-                            <option value="pending">Pending</option>
-                            <option value="approved">Approved</option>
-                            <option value="rejected">Rejected</option>
-                            <option value="completed">Completed</option>
-                        </select>
-                    </div>
-                    <div class="filter-group">
-                        <label for="assignmentFilter">Assignment</label>
-                        <select id="assignmentFilter" class="filter-select" onchange="filterLeads()">
-                            <option value="">All</option>
-                            <option value="assigned">Assigned</option>
-                            <option value="unassigned">Unassigned</option>
-                        </select>
-                    </div>
-                    <div class="filter-group">
-                        <label for="dateFromFilter">Date From</label>
-                        <input type="date" id="dateFromFilter" class="filter-input" onchange="filterLeads()">
-                    </div>
-                    <div class="filter-group">
-                        <label for="dateToFilter">Date To</label>
-                        <input type="date" id="dateToFilter" class="filter-input" onchange="filterLeads()">
-                    </div>
-                    <div class="filter-group">
-                        <label for="searchFilter">Search</label>
-                        <div class="search-input-wrapper">
-                            <input type="text" id="searchFilter" class="filter-input" placeholder="Search by name, company..." oninput="filterLeads()">
-                            <i class="fas fa-search"></i>
-                        </div>
-                    </div>
-                    <div class="filter-actions">
-                        <button class="btn-reset" onclick="resetFilters()">
-                            <i class="fas fa-undo"></i>
-                            Reset
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Main Content Grid -->
-            <div class="leads-content-grid">
-                <!-- Left Side - Lead Form -->
-                <div class="lead-form-container">
-                    <div class="form-header">
-                        <h2 id="formTitle">Add New Lead</h2>
-                        <p id="formSubtitle">Fill in the details to create a new lead</p>
-                    </div>
-                    <form id="leadForm" class="lead-form" onsubmit="saveLead(event)">
-                        <input type="hidden" id="leadId" value="">
-                        
-                        <div class="form-section">
-                            <h3 class="section-title">
-                                <i class="fas fa-user"></i>
-                                Personal Information
-                            </h3>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="leadName">Full Name <span class="required">*</span></label>
-                                    <input type="text" id="leadName" name="name" class="form-control" required>
-                                </div>
-                                <div class="form-group">
-                                    <label for="leadEmail">Email Address <span class="required">*</span></label>
-                                    <input type="email" id="leadEmail" name="email" class="form-control" required>
-                                </div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="leadPhone">Phone Number <span class="required">*</span></label>
-                                    <input type="tel" id="leadPhone" name="phone" class="form-control" required>
-                                </div>
-                                <div class="form-group">
-                                    <label for="leadLocation">Location</label>
-                                    <input type="text" id="leadLocation" name="location" class="form-control">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="form-section">
-                            <h3 class="section-title">
-                                <i class="fas fa-building"></i>
-                                Company Details
-                            </h3>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="leadCompany">Company Name</label>
-                                    <input type="text" id="leadCompany" name="company" class="form-control">
-                                </div>
-                                <div class="form-group">
-                                    <label for="leadPosition">Position</label>
-                                    <input type="text" id="leadPosition" name="position" class="form-control">
-                                </div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="leadIndustry">Industry</label>
-                                    <select id="leadIndustry" name="industry" class="form-control">
-                                        <option value="">Select Industry</option>
-                                        <option value="IT">Information Technology</option>
-                                        <option value="Finance">Finance</option>
-                                        <option value="Healthcare">Healthcare</option>
-                                        <option value="Education">Education</option>
-                                        <option value="Manufacturing">Manufacturing</option>
-                                        <option value="Retail">Retail</option>
-                                        <option value="Other">Other</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label for="leadWebsite">Website</label>
-                                    <input type="url" id="leadWebsite" name="website" class="form-control">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="form-section">
-                            <h3 class="section-title">
-                                <i class="fas fa-chart-line"></i>
-                                Lead Details
-                            </h3>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="leadAmount">Deal Amount (₹)</label>
-                                    <input type="number" id="leadAmount" name="amount" class="form-control">
-                                </div>
-                                <div class="form-group">
-                                    <label for="leadStatus">Status</label>
-                                    <select id="leadStatus" name="status" class="form-control">
-                                        <option value="pending">Pending</option>
-                                        <option value="approved">Approved</option>
-                                        <option value="rejected">Rejected</option>
-                                        <option value="completed">Completed</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="leadSource">Lead Source</label>
-                                    <select id="leadSource" name="source" class="form-control">
-                                        <option value="">Select Source</option>
-                                        <option value="Website">Website</option>
-                                        <option value="Referral">Referral</option>
-                                        <option value="Social Media">Social Media</option>
-                                        <option value="Email Campaign">Email Campaign</option>
-                                        <option value="Cold Call">Cold Call</option>
-                                        <option value="Event">Event</option>
-                                        <option value="Other">Other</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label for="leadExpectedDate">Expected Closing Date</label>
-                                    <input type="date" id="leadExpectedDate" name="expected_date" class="form-control">
-                                </div>
-                            </div>
-                            <div class="form-group full-width">
-                                <label for="leadNotes">Notes</label>
-                                <textarea id="leadNotes" name="notes" class="form-control" rows="3"></textarea>
-                            </div>
-                        </div>
-
-                        <div class="form-actions">
-                            <button type="button" class="btn-secondary" onclick="resetForm()">
-                                <i class="fas fa-times"></i>
-                                Cancel
-                            </button>
-                            <button type="submit" id="saveButton" class="btn-primary">
-                                <i class="fas fa-save"></i>
-                                Save Lead
-                            </button>
-                        </div>
-                    </form>
-                </div>
-
-                <!-- Right Side - Leads Table -->
-                <div class="leads-table-container">
-                    <div class="table-header">
-                        <h2>Your Leads</h2>
-                        <div class="table-actions">
-                            <div class="results-info">
-                                Showing <span id="resultsCount">0</span> leads
-                            </div>
-                            <button class="btn-refresh" onclick="refreshLeads()">
-                                <i class="fas fa-sync-alt"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="table-wrapper">
-                        <table id="leadsTable" class="leads-table">
-                            <thead>
-                                <tr>
-                                    <th>Lead</th>
-                                    <th>Company</th>
-                                    <th>Amount</th>
-                                    <th>Status</th>
-                                    <th>Team Lead</th>
-                                    <th>Date</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="leadsTableBody">
-                                <!-- Table rows will be populated dynamically -->
-                            </tbody>
-                        </table>
-                    </div>
-                    <div id="emptyState" class="empty-state">
-                        <div class="empty-state-icon">
-                            <i class="fas fa-search"></i>
-                        </div>
-                        <h3>No leads found</h3>
-                        <p>Try adjusting your filters or add a new lead</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Lead Detail Modal -->
-    <div class="modal-overlay" id="leadDetailModal">
-        <div class="modal-container">
-            <div class="modal-header">
-                <h2 class="modal-title">Lead Details</h2>
-                <button class="modal-close" onclick="closeModal('leadDetailModal')">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-content">
-                <div class="lead-detail-grid">
-                    <div class="lead-detail-left">
-                        <div class="lead-avatar-large" id="modalLeadInitials">RK</div>
-                        <div class="lead-basic-info">
-                            <h3 id="modalLeadName">Rajesh Kumar</h3>
-                            <p id="modalLeadCompany">TechCorp India</p>
-                            <div class="lead-contact">
-                                <div class="contact-item">
-                                    <i class="fas fa-phone"></i>
-                                    <span id="modalLeadPhone">+91 98765 43210</span>
-                                </div>
-                                <div class="contact-item">
-                                    <i class="fas fa-envelope"></i>
-                                    <span id="modalLeadEmail">rajesh.kumar@email.com</span>
-                                </div>
-                                <div class="contact-item">
-                                    <i class="fas fa-map-marker-alt"></i>
-                                    <span id="modalLeadLocation">Mumbai, Maharashtra</span>
-                                </div>
-                                <div class="contact-item">
-                                    <i class="fas fa-globe"></i>
-                                    <span id="modalLeadWebsite">www.techcorp.com</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="lead-detail-right">
-                        <div class="detail-section">
-                            <h4>Business Information</h4>
-                            <div class="detail-grid">
-                                <div class="detail-item">
-                                    <label>Lead Amount</label>
-                                    <span id="modalLeadAmount" class="amount">₹12,50,000</span>
-                                </div>
-                                <div class="detail-item">
-                                    <label>Industry</label>
-                                    <span id="modalLeadIndustry">Information Technology</span>
-                                </div>
-                                <div class="detail-item">
-                                    <label>Position</label>
-                                    <span id="modalLeadPosition">CTO</span>
-                                </div>
-                                <div class="detail-item">
-                                    <label>Lead Source</label>
-                                    <span id="modalLeadSource">Website</span>
-                                </div>
-                                <div class="detail-item">
-                                    <label>Expected Closing</label>
-                                    <span id="modalLeadExpectedDate">March 15, 2024</span>
-                                </div>
-                                <div class="detail-item">
-                                    <label>Status</label>
-                                    <span id="modalLeadStatus" class="status pending">Pending</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="detail-section">
-                            <h4>Notes</h4>
-                            <div class="remarks-box">
-                                <p id="modalLeadNotes">Very interested in our premium package. Scheduled follow-up call for next week. Decision maker confirmed.</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-secondary" onclick="closeModal('leadDetailModal')">
-                    <i class="fas fa-times"></i>
-                    Close
-                </button>
-                <button class="btn-primary" onclick="editLead(currentLeadId)">
-                    <i class="fas fa-edit"></i>
-                    Edit Lead
-                </button>
-                <button class="btn-primary" onclick="forwardToTeamLead(currentLeadId)">
-        <i class="fas fa-share"></i>
-        Forward to Team Lead
-    </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Delete Confirmation Modal -->
-    <div class="modal-overlay" id="deleteConfirmModal">
-        <div class="modal-container modal-sm">
-            <div class="modal-header">
-                <h2 class="modal-title">Confirm Delete</h2>
-                <button class="modal-close" onclick="closeModal('deleteConfirmModal')">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-content">
-                <div class="confirm-message">
-                    <div class="confirm-icon">
-                        <i class="fas fa-exclamation-triangle"></i>
-                    </div>
-                    <p>Are you sure you want to delete this lead? This action cannot be undone.</p>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-secondary" onclick="closeModal('deleteConfirmModal')">
-                    <i class="fas fa-times"></i>
-                    Cancel
-                </button>
-                <button class="btn-danger" onclick="confirmDelete()">
-                    <i class="fas fa-trash-alt"></i>
-                    Delete
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <style>
+ <style>
         /* Base Styles */
         * {
             margin: 0;
@@ -1673,6 +1309,371 @@
             }
         }
     </style>
+<body>
+    @include('Employee.Components.sidebar')
+    
+    <div class="main-content">
+        @include('Employee.Components.header', ['title' => 'Leads Management', 'subtitle' => 'Create, view and manage your leads'])
+        
+        <div class="dashboard-container">
+            <!-- Page Header with Filters -->
+            <div class="page-header">
+                <div class="header-content">
+                    <h1 class="page-title">Manage Leads</h1>
+                    <p class="page-subtitle">Create new leads and manage existing ones</p>
+                </div>
+                <div class="filter-section">
+                    <button class="filter-toggle" onclick="toggleFilters()">
+                        <i class="fas fa-filter"></i>
+                        <span>Filters</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Advanced Filters (Hidden by default) -->
+            <div class="advanced-filters" id="advancedFilters">
+                <div class="filters-grid">
+                    <div class="filter-group">
+                        <label for="statusFilter">Status</label>
+                        <select id="statusFilter" class="filter-select" onchange="filterLeads()">
+                            <option value="">All Statuses</option>
+                            <option value="pending">Pending</option>
+                            <option value="approved">Approved</option>
+                            <option value="rejected">Rejected</option>
+                            <option value="completed">Completed</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="assignmentFilter">Assignment</label>
+                        <select id="assignmentFilter" class="filter-select" onchange="filterLeads()">
+                            <option value="">All</option>
+                            <option value="assigned">Assigned</option>
+                            <option value="unassigned">Unassigned</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="dateFromFilter">Date From</label>
+                        <input type="date" id="dateFromFilter" class="filter-input" onchange="filterLeads()">
+                    </div>
+                    <div class="filter-group">
+                        <label for="dateToFilter">Date To</label>
+                        <input type="date" id="dateToFilter" class="filter-input" onchange="filterLeads()">
+                    </div>
+                    <div class="filter-group">
+                        <label for="searchFilter">Search</label>
+                        <div class="search-input-wrapper">
+                            <input type="text" id="searchFilter" class="filter-input" placeholder="Search by name, company..." oninput="filterLeads()">
+                            <i class="fas fa-search"></i>
+                        </div>
+                    </div>
+                    <div class="filter-actions">
+                        <button class="btn-reset" onclick="resetFilters()">
+                            <i class="fas fa-undo"></i>
+                            Reset
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content Grid -->
+            <div class="leads-content-grid">
+                <!-- Left Side - Lead Form -->
+                <div class="lead-form-container">
+                    <div class="form-header">
+                        <h2 id="formTitle">Add New Lead</h2>
+                        <p id="formSubtitle">Fill in the details to create a new lead</p>
+                    </div>
+                    <form id="leadForm" class="lead-form" onsubmit="saveLead(event)">
+                        <input type="hidden" id="leadId" value="">
+                        
+                        <div class="form-section">
+                            <h3 class="section-title">
+                                <i class="fas fa-user"></i>
+                                Personal Information
+                            </h3>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="leadName">Full Name <span class="required">*</span></label>
+                                    <input type="text" id="leadName" name="name" class="form-control" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="leadEmail">Email Address <span class="required">*</span></label>
+                                    <input type="email" id="leadEmail" name="email" class="form-control" required>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="leadPhone">Phone Number <span class="required">*</span></label>
+                                    <input type="tel" id="leadPhone" name="phone" class="form-control" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="leadLocation">Location</label>
+                                    <input type="text" id="leadLocation" name="location" class="form-control">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h3 class="section-title">
+                                <i class="fas fa-building"></i>
+                                Company Details
+                            </h3>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="leadCompany">Company Name</label>
+                                    <input type="text" id="leadCompany" name="company" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label for="leadPosition">Position</label>
+                                    <input type="text" id="leadPosition" name="position" class="form-control">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="leadIndustry">Industry</label>
+                                    <select id="leadIndustry" name="industry" class="form-control">
+                                        <option value="">Select Industry</option>
+                                        <option value="IT">Information Technology</option>
+                                        <option value="Finance">Finance</option>
+                                        <option value="Healthcare">Healthcare</option>
+                                        <option value="Education">Education</option>
+                                        <option value="Manufacturing">Manufacturing</option>
+                                        <option value="Retail">Retail</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="leadWebsite">Website</label>
+                                    <input type="url" id="leadWebsite" name="website" class="form-control">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h3 class="section-title">
+                                <i class="fas fa-chart-line"></i>
+                                Lead Details
+                            </h3>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="leadAmount">Deal Amount (₹)</label>
+                                    <input type="number" id="leadAmount" name="amount" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label for="leadStatus">Status</label>
+                                    <select id="leadStatus" name="status" class="form-control">
+                                        <option value="pending">Pending</option>
+                                        <option value="approved">Approved</option>
+                                        <option value="rejected">Rejected</option>
+                                        <option value="completed">Completed</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="leadSource">Lead Source</label>
+                                    <select id="leadSource" name="source" class="form-control">
+                                        <option value="">Select Source</option>
+                                        <option value="Website">Website</option>
+                                        <option value="Referral">Referral</option>
+                                        <option value="Social Media">Social Media</option>
+                                        <option value="Email Campaign">Email Campaign</option>
+                                        <option value="Cold Call">Cold Call</option>
+                                        <option value="Event">Event</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="leadExpectedDate">Expected Closing Date</label>
+                                    <input type="date" id="leadExpectedDate" name="expected_date" class="form-control">
+                                </div>
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="leadNotes">Notes</label>
+                                <textarea id="leadNotes" name="notes" class="form-control" rows="3"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="button" class="btn-secondary" onclick="resetForm()">
+                                <i class="fas fa-times"></i>
+                                Cancel
+                            </button>
+                            <button type="submit" id="saveButton" class="btn-primary">
+                                <i class="fas fa-save"></i>
+                                Save Lead
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Right Side - Leads Table -->
+                <div class="leads-table-container">
+                    <div class="table-header">
+                        <h2>Your Leads</h2>
+                        <div class="table-actions">
+                            <div class="results-info">
+                                Showing <span id="resultsCount">0</span> leads
+                            </div>
+                            <button class="btn-refresh" onclick="refreshLeads()">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="leadsTable" class="leads-table">
+                            <thead>
+                                <tr>
+                                    <th>Lead</th>
+                                    <th>Company</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                    <th>Team Lead</th>
+                                    <th>Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="leadsTableBody">
+                                <!-- Table rows will be populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="emptyState" class="empty-state">
+                        <div class="empty-state-icon">
+                            <i class="fas fa-search"></i>
+                        </div>
+                        <h3>No leads found</h3>
+                        <p>Try adjusting your filters or add a new lead</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lead Detail Modal -->
+    <div class="modal-overlay" id="leadDetailModal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h2 class="modal-title">Lead Details</h2>
+                <button class="modal-close" onclick="closeModal('leadDetailModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-content">
+                <div class="lead-detail-grid">
+                    <div class="lead-detail-left">
+                        <div class="lead-avatar-large" id="modalLeadInitials">RK</div>
+                        <div class="lead-basic-info">
+                            <h3 id="modalLeadName">Rajesh Kumar</h3>
+                            <p id="modalLeadCompany">TechCorp India</p>
+                            <div class="lead-contact">
+                                <div class="contact-item">
+                                    <i class="fas fa-phone"></i>
+                                    <span id="modalLeadPhone">+91 98765 43210</span>
+                                </div>
+                                <div class="contact-item">
+                                    <i class="fas fa-envelope"></i>
+                                    <span id="modalLeadEmail">rajesh.kumar@email.com</span>
+                                </div>
+                                <div class="contact-item">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <span id="modalLeadLocation">Mumbai, Maharashtra</span>
+                                </div>
+                                <div class="contact-item">
+                                    <i class="fas fa-globe"></i>
+                                    <span id="modalLeadWebsite">www.techcorp.com</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="lead-detail-right">
+                        <div class="detail-section">
+                            <h4>Business Information</h4>
+                            <div class="detail-grid">
+                                <div class="detail-item">
+                                    <label>Lead Amount</label>
+                                    <span id="modalLeadAmount" class="amount">₹12,50,000</span>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Industry</label>
+                                    <span id="modalLeadIndustry">Information Technology</span>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Position</label>
+                                    <span id="modalLeadPosition">CTO</span>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Lead Source</label>
+                                    <span id="modalLeadSource">Website</span>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Expected Closing</label>
+                                    <span id="modalLeadExpectedDate">March 15, 2024</span>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Status</label>
+                                    <span id="modalLeadStatus" class="status pending">Pending</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="detail-section">
+                            <h4>Notes</h4>
+                            <div class="remarks-box">
+                                <p id="modalLeadNotes">Very interested in our premium package. Scheduled follow-up call for next week. Decision maker confirmed.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal('leadDetailModal')">
+                    <i class="fas fa-times"></i>
+                    Close
+                </button>
+                <button class="btn-primary" onclick="editLead(currentLeadId)">
+                    <i class="fas fa-edit"></i>
+                    Edit Lead
+                </button>
+                <button class="btn-primary" onclick="forwardToTeamLead(currentLeadId)">
+        <i class="fas fa-share"></i>
+        Forward to Team Lead
+    </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal-overlay" id="deleteConfirmModal">
+        <div class="modal-container modal-sm">
+            <div class="modal-header">
+                <h2 class="modal-title">Confirm Delete</h2>
+                <button class="modal-close" onclick="closeModal('deleteConfirmModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-content">
+                <div class="confirm-message">
+                    <div class="confirm-icon">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <p>Are you sure you want to delete this lead? This action cannot be undone.</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal('deleteConfirmModal')">
+                    <i class="fas fa-times"></i>
+                    Cancel
+                </button>
+                <button class="btn-danger" onclick="confirmDelete()">
+                    <i class="fas fa-trash-alt"></i>
+                    Delete
+                </button>
+            </div>
+        </div>
+    </div>
+
+   
 
     <script>
         // Sample data for leads

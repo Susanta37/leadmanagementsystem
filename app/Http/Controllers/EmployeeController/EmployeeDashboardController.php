@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\EmployeeController;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ProfileUpdateRequest;
 use App\Models\Attendance;
 use App\Models\Lead;
 use App\Models\Notification;
@@ -20,11 +21,11 @@ class EmployeeDashboardController extends Controller
         return view('Employee.dashboard', compact('leads', 'tasks', 'notifications'));
     }
 
-    public function indexLeads()
-    {
-        $leads = Auth::user()->createdLeads()->paginate(10);
-        return view('Employee.leads.index', compact('leads'));
-    }
+    // public function indexLeads()
+    // {
+    //     $leads = Auth::user()->createdLeads()->paginate(10);
+    //     return view('Employee.leads.index', compact('leads'));
+    // }
 
    
 
