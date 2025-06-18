@@ -21,12 +21,17 @@ class Attendance extends Model
         'notes',
         'checkin_image',
         'checkout_image',
+        'last_location_update',
+        'is_within_geofence',
+        'reason',
     ];
 
     protected $casts = [
         'date' => 'date',
         'check_in' => 'datetime',
         'check_out' => 'datetime',
+        'last_location_update' => 'datetime',
+        'is_within_geofence' => 'boolean',
     ];
 
     // Employee associated with this attendance record

@@ -48,7 +48,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/attendances', [AttendanceController::class, 'index']);
     Route::post('/attendances', [AttendanceController::class, 'store']);
     Route::post('/attendances/{attendance}', [AttendanceController::class, 'update']);
-
+    Route::get('/attendance/status', [AttendanceController::class, 'checkTodayStatus']);
+    Route::post('/attendance/location', [AttendanceController::class, 'updateLocation']);
+    Route::get('/geofence-settings', [AttendanceController::class, 'getGeofenceSettings']);
+    
     //Team view api
     Route::get('/teams', [TeamController::class, 'index']);
 
