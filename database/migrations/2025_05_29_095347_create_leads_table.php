@@ -26,7 +26,7 @@ return new class extends Migration
             $table->integer('success_percentage');
             $table->string('expected_month');
             $table->text('remarks')->nullable();
-            $table->enum('status', ['pending', 'approved', 'rejected', 'completed'])->default('pending');
+            $table->enum('status', ['personal_lead','authorized', 'approved', 'rejected', 'completed'])->default('personal_lead');
             $table->timestamps();
             $table->index('status');
         });

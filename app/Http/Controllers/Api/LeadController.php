@@ -33,7 +33,7 @@ class LeadController extends Controller
         
         // Validate filter parameters
         $validLeadTypes = ['all', 'personal_loan', 'home_loan', 'business_loan', 'creditcard_loan'];
-        $validStatuses = ['all', 'pending', 'approved', 'completed', 'rejected'];
+        $validStatuses = ['all', 'pending', 'authorized', 'login', 'approved', 'disbursed', 'rejected'];
         $validDateFilters = ['this_month', 'this_week', 'this_year', 'date_range'];
         
         if (!in_array($leadType, $validLeadTypes)) {
@@ -85,8 +85,13 @@ class LeadController extends Controller
 
         // Base query based on user role
         $query = Lead::query();
-        if ($user->designation !== 'team_lead') {
+        if ($user->designation !== 'team_lead' && $user->designation !== 'operations') {
             $query->where('employee_id', $user->id);
+        } elseif ($user->designation === 'team_lead') {
+            $query->where(function ($q) use ($user) {
+                $q->where('employee_id', $user->id)
+                  ->orWhere('team_lead_id', $user->id);
+            });
         }
 
         // Apply date filter
@@ -127,8 +132,8 @@ class LeadController extends Controller
         ];
 
         $disbursedLeads = [
-            'count' => $query->clone()->where('status', 'completed')->count(),
-            'total_amount' => $query->clone()->where('status', 'completed')->sum('lead_amount'),
+            'count' => $query->clone()->where('status', 'disbursed')->count(),
+            'total_amount' => $query->clone()->where('status', 'disbursed')->sum('lead_amount'),
         ];
 
         $pendingLeads = [
@@ -139,6 +144,16 @@ class LeadController extends Controller
         $rejectedLeads = [
             'count' => $query->clone()->where('status', 'rejected')->count(),
             'total_amount' => $query->clone()->where('status', 'rejected')->sum('lead_amount'),
+        ];
+
+        $authorizedLeads = [
+            'count' => $query->clone()->where('status', 'authorized')->count(),
+            'total_amount' => $query->clone()->where('status', 'authorized')->sum('lead_amount'),
+        ];
+
+        $loginLeads = [
+            'count' => $query->clone()->where('status', 'login')->count(),
+            'total_amount' => $query->clone()->where('status', 'login')->sum('lead_amount'),
         ];
 
         return response()->json([
@@ -152,6 +167,8 @@ class LeadController extends Controller
                     'disbursed_leads' => $disbursedLeads,
                     'pending_leads' => $pendingLeads,
                     'rejected_leads' => $rejectedLeads,
+                    'authorized_leads' => $authorizedLeads,
+                    'login_leads' => $loginLeads,
                 ],
                 'filters_applied' => [
                     'lead_type' => $leadType,
@@ -172,24 +189,61 @@ class LeadController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'phone' => 'required|string|max:15',
-            'location' => 'required|string|max:255',
-            'lead_amount' => 'required|numeric|min:0',
-            'expected_month' => 'required|string|in:January,February,March,April,May,June,July,August,September,October,November,December',
-            'email' => 'nullable|string|email|max:255',
-            'dob' => 'nullable|date',
-            'company_name' => 'nullable|string|max:255',
-            'salary' => 'nullable|numeric|min:0',
-            'success_percentage' => 'nullable|integer|min:0|max:100',
-            'remarks' => 'nullable|string',
-            'status' => 'nullable|string|in:pending,approved,rejected,completed',
+        $user = Auth::user();
+        if ($user->designation === 'operations') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Operations team cannot create leads',
+            ], 403);
+        }
+
+        $leadType = $request->input('lead_type');
+        
+        // Common validation rules
+        $commonRules = [
+            'lead_type' => 'required|string|in:personal_loan,home_loan,business_loan,creditcard_loan',
             'team_lead_id' => 'nullable|exists:users,id',
-            'lead_type' => 'nullable|string|in:personal_loan,home_loan,business_loan,creditcard_loan',
             'voice_recording' => 'nullable|file|mimes:mp3,wav|max:10240',
-            'is_personal_lead' => 'nullable|boolean',
-        ]);
+        ];
+
+        // Specific validation rules based on lead_type
+        $specificRules = [];
+        if ($leadType === 'personal_loan' || $leadType === 'home_loan') {
+            $specificRules = [
+                'name' => 'required|string|max:255',
+                'phone' => 'required|string|max:15',
+                'location' => 'required|string|max:255',
+                'lead_amount' => 'required|numeric|min:0',
+                'expected_month' => 'required|string|in:January,February,March,April,May,June,July,August,September,October,November,December',
+                'email' => 'nullable|string|email|max:255',
+                'dob' => 'nullable|date',
+                'company_name' => 'nullable|string|max:255',
+                'salary' => 'nullable|numeric|min:0',
+                'success_percentage' => 'nullable|integer|min:0|max:100',
+                'remarks' => 'nullable|string',
+            ];
+        } elseif ($leadType === 'business_loan') {
+            $specificRules = [
+                'business_name' => 'required|string|max:255',
+                'phone' => 'required|string|max:15',
+                'email' => 'nullable|string|email|max:255',
+                'location' => 'required|string|max:255',
+                'lead_amount' => 'required|numeric|min:0',
+                'turnover_amount' => 'required|numeric|min:5000000',
+                'vintage_year' => 'required|integer|min:2',
+                'success_percentage' => 'nullable|integer|min:0|max:100',
+                'remarks' => 'nullable|string',
+            ];
+        } elseif ($leadType === 'creditcard_loan') {
+            $specificRules = [
+                'name' => 'required|string|max:255',
+                'phone' => 'required|string|max:15',
+                'email' => 'required|string|email|max:255',
+                'bank_name' => 'required|string|max:255',
+            ];
+        }
+
+        $validator = Validator::make($request->all(), array_merge($commonRules, $specificRules));
 
         if ($validator->fails()) {
             return response()->json([
@@ -205,26 +259,52 @@ class LeadController extends Controller
         }
         $final_voice_recording_path = $voice_recording_path ? '/storage/' . $voice_recording_path : null;
 
-        $lead = Lead::create([
+        // Prepare data based on lead_type
+        $data = [
             'employee_id' => Auth::id(),
             'team_lead_id' => $request->team_lead_id,
-            'name' => $request->name,
-            'phone' => $request->phone,
-            'email' => $request->email,
-            'dob' => $request->dob,
-            'location' => $request->location,
-            'company_name' => $request->company_name,
-            'lead_amount' => $request->lead_amount,
-            'salary' => $request->salary,
-            'success_percentage' => $request->success_percentage,
-            'expected_month' => $request->expected_month,
-            'remarks' => $request->remarks,
-            'status' => $request->status ?? 'pending',
+            'status' => 'personal_lead',
             'lead_type' => $request->lead_type,
             'voice_recording' => $final_voice_recording_path,
-            'is_personal_lead' => $request->is_personal_lead ?? true,
-        ]);
+            'is_personal_lead' => true,
+        ];
 
+        if ($leadType === 'personal_loan' || $leadType === 'home_loan') {
+            $data = array_merge($data, [
+                'name' => $request->name,
+                'phone' => $request->phone,
+                'email' => $request->email,
+                'dob' => $request->dob,
+                'location' => $request->location,
+                'company_name' => $request->company_name,
+                'lead_amount' => $request->lead_amount,
+                'salary' => $request->salary,
+                'success_percentage' => $request->success_percentage,
+                'expected_month' => $request->expected_month,
+                'remarks' => $request->remarks,
+            ]);
+        } elseif ($leadType === 'business_loan') {
+            $data = array_merge($data, [
+                'name' => $request->business_name,
+                'phone' => $request->phone,
+                'email' => $request->email,
+                'location' => $request->location,
+                'lead_amount' => $request->lead_amount,
+                'turnover_amount' => $request->turnover_amount,
+                'vintage_year' => $request->vintage_year,
+                'success_percentage' => $request->success_percentage,
+                'remarks' => $request->remarks,
+            ]);
+        } elseif ($leadType === 'creditcard_loan') {
+            $data = array_merge($data, [
+                'name' => $request->name,
+                'phone' => $request->phone,
+                'email' => $request->email,
+                'bank_name' => $request->bank_name,
+            ]);
+        }
+
+        $lead = Lead::create($data);
         $lead->load(['employee', 'teamLead']);
 
         return response()->json([
@@ -259,56 +339,75 @@ class LeadController extends Controller
      */
     public function edit(Lead $lead): JsonResponse
     {
-        // Restrict access to the lead's employee or team lead
-        if (Auth::id() !== $lead->employee_id && Auth::id() !== $lead->team_lead_id) {
+        $user = Auth::user();
+        // Restrict access based on user role and lead status
+        if ($user->designation !== 'team_lead' && $user->designation !== 'operations' && Auth::id() !== $lead->employee_id) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Unauthorized to edit this lead',
             ], 403);
         }
 
-        // Check if lead is editable (must be personal lead)
-        if (!$lead->is_personal_lead) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'This lead is not editable',
-            ], 403);
-        }
-
         // Load relationships
         $lead->load(['employee', 'teamLead']);
+
+        $leadData = [
+            'id' => $lead->id,
+            'status' => $lead->status,
+            'lead_type' => $lead->lead_type,
+            'voice_recording' => $lead->voice_recording,
+            'team_lead_id' => $lead->team_lead_id,
+            'is_personal_lead' => $lead->is_personal_lead,
+            'created_at' => $lead->created_at->toISOString(),
+            'employee' => [
+                'name' => $lead->employee ? $lead->employee->email : null,
+                'profile_photo_url' => null,
+                'pan_card_url' => null,
+                'aadhar_card_url' => null,
+                'signature_url' => null
+            ]
+        ];
+
+        if ($lead->lead_type === 'personal_loan' || $lead->lead_type === 'home_loan') {
+            $leadData = array_merge($leadData, [
+                'name' => $lead->name,
+                'phone' => $lead->phone,
+                'email' => $lead->email,
+                'dob' => $lead->dob,
+                'location' => $lead->location,
+                'company_name' => $lead->company_name,
+                'lead_amount' => number_format($lead->lead_amount, 2, '.', ''),
+                'salary' => $lead->salary ? number_format($lead->salary, 2, '.', '') : null,
+                'success_percentage' => $lead->success_percentage,
+                'expected_month' => $lead->expected_month,
+                'remarks' => $lead->remarks,
+            ]);
+        } elseif ($lead->lead_type === 'business_loan') {
+            $leadData = array_merge($leadData, [
+                'business_name' => $lead->name,
+                'phone' => $lead->phone,
+                'email' => $lead->email,
+                'location' => $lead->location,
+                'lead_amount' => number_format($lead->lead_amount, 2, '.', ''),
+                'turnover_amount' => $lead->turnover_amount,
+                'vintage_year' => $lead->vintage_year,
+                'success_percentage' => $lead->success_percentage,
+                'remarks' => $lead->remarks,
+            ]);
+        } elseif ($lead->lead_type === 'creditcard_loan') {
+            $leadData = array_merge($leadData, [
+                'name' => $lead->name,
+                'phone' => $lead->phone,
+                'email' => $lead->email,
+                'bank_name' => $lead->bank_name,
+            ]);
+        }
 
         return response()->json([
             'status' => 'success',
             'message' => 'Lead data retrieved for editing',
             'data' => [
-                'lead' => [
-                    'id' => $lead->id,
-                    'name' => $lead->name,
-                    'phone' => $lead->phone,
-                    'email' => $lead->email,
-                    'dob' => $lead->dob,
-                    'location' => $lead->location,
-                    'company_name' => $lead->company_name,
-                    'lead_amount' => number_format($lead->lead_amount, 2, '.', ''),
-                    'salary' => $lead->salary ? number_format($lead->salary, 2, '.', '') : null,
-                    'success_percentage' => $lead->success_percentage,
-                    'expected_month' => $lead->expected_month,
-                    'remarks' => $lead->remarks,
-                    'status' => $lead->status,
-                    'lead_type' => $lead->lead_type,
-                    'voice_recording' => $lead->voice_recording,
-                    'team_lead_id' => $lead->team_lead_id,
-                    'is_personal_lead' => $lead->is_personal_lead,
-                    'created_at' => $lead->created_at->toISOString(),
-                    'employee' => [
-                        'name' => $lead->employee ? $lead->employee->email : null,
-                        'profile_photo_url' => null,
-                        'pan_card_url' => null,
-                        'aadhar_card_url' => null,
-                        'signature_url' => null
-                    ]
-                ]
+                'lead' => $leadData
             ]
         ], 200);
     }
@@ -322,40 +421,79 @@ class LeadController extends Controller
      */
     public function update(Request $request, Lead $lead): JsonResponse
     {
-        // Restrict updates to the lead's employee or team lead
-        if (Auth::id() !== $lead->employee_id && Auth::id() !== $lead->team_lead_id) {
+        $user = Auth::user();
+
+        // Role-based access control
+        if ($user->designation !== 'team_lead' && $user->designation !== 'operations' && Auth::id() !== $lead->employee_id) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Unauthorized to update this lead',
             ], 403);
         }
 
-        // Check if lead is editable (must be personal lead)
-        if (!$lead->is_personal_lead) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'This lead is not editable',
-            ], 403);
+        // Validate status transitions based on user role
+        $validStatuses = [];
+        if ($user->designation === 'team_lead') {
+            if ($lead->status === 'pending') {
+                $validStatuses = ['authorized', 'rejected'];
+            } elseif ($lead->status === 'authorized') {
+                $validStatuses = ['login', 'rejected'];
+            }
+        } elseif ($user->designation === 'operations') {
+            if ($lead->status === 'login') {
+                $validStatuses = ['approved', 'rejected'];
+            } elseif ($lead->status === 'approved') {
+                $validStatuses = ['disbursed', 'rejected'];
+            }
+        } elseif ($lead->is_personal_lead && Auth::id() === $lead->employee_id) {
+            $validStatuses = ['pending'];
         }
 
-        $validator = Validator::make($request->all(), [
-            'name' => 'sometimes|string|max:255',
-            'phone' => 'sometimes|string|max:15',
-            'email' => 'sometimes|string|email|max:255',
-            'dob' => 'nullable|date',
-            'location' => 'sometimes|string|max:255',
-            'company_name' => 'sometimes|string|max:255',
-            'lead_amount' => 'sometimes|numeric|min:0',
-            'salary' => 'nullable|numeric|min:0',
-            'success_percentage' => 'sometimes|integer|min:0|max:100',
-            'expected_month' => 'nullable|string|in:January,February,March,April,May,June,July,August,September,October,November,December',
-            'remarks' => 'nullable|string',
-            'status' => 'sometimes|string|in:pending,approved,rejected,completed',
+        // Common validation rules
+        $commonRules = [
+            'status' => 'sometimes|string|in:' . implode(',', $validStatuses),
             'team_lead_id' => 'sometimes|exists:users,id',
-            'lead_type' => 'nullable|string|in:personal_loan,home_loan,business_loan,creditcard_loan',
             'voice_recording' => 'nullable|file|mimes:mp3,wav|max:10240',
-            'is_personal_lead' => 'sometimes|boolean',
-        ]);
+        ];
+
+        // Specific validation rules based on lead_type
+        $specificRules = [];
+        if ($lead->lead_type === 'personal_loan' || $lead->lead_type === 'home_loan') {
+            $specificRules = [
+                'name' => 'sometimes|string|max:255',
+                'phone' => 'sometimes|string|max:15',
+                'email' => 'sometimes|string|email|max:255',
+                'dob' => 'nullable|date',
+                'location' => 'sometimes|string|max:255',
+                'company_name' => 'sometimes|string|max:255',
+                'lead_amount' => 'sometimes|numeric|min:0',
+                'salary' => 'nullable|numeric|min:0',
+                'success_percentage' => 'sometimes|integer|min:0|max:100',
+                'expected_month' => 'nullable|string|in:January,February,March,April,May,June,July,August,September,October,November,December',
+                'remarks' => 'nullable|string',
+            ];
+        } elseif ($lead->lead_type === 'business_loan') {
+            $specificRules = [
+                'business_name' => 'sometimes|string|max:255',
+                'phone' => 'sometimes|string|max:15',
+                'email' => 'sometimes|string|email|max:255',
+                'location' => 'sometimes|string|max:255',
+                'lead_amount' => 'sometimes|numeric|min:0',
+                'turnover_amount' => 'sometimes|numeric|min:5000000',
+                'vintage_year' => 'sometimes|integer|min:2',
+                'success_percentage' => 'sometimes|integer|min:0|max:100',
+                'remarks' => 'nullable|string',
+            ];
+        } elseif ($lead->lead_type === 'creditcard_loan') {
+            $specificRules = [
+                'name' => 'sometimes|string|max:255',
+                'phone' => 'sometimes|string|max:15',
+                'email' => 'sometimes|string|email|max:255',
+                'bank_name' => 'sometimes|string|max:255',
+            ];
+        }
+
+        $validator = Validator::make($request->all(), array_merge($commonRules, $specificRules));
 
         if ($validator->fails()) {
             return response()->json([
@@ -367,26 +505,54 @@ class LeadController extends Controller
 
         // Initialize data with validated request fields
         $data = $request->only([
-            'name',
-            'phone',
-            'email',
-            'dob',
-            'location',
-            'company_name',
-            'lead_amount',
-            'salary',
-            'success_percentage',
-            'expected_month',
-            'remarks',
             'status',
             'team_lead_id',
-            'lead_type',
-            'is_personal_lead',
         ]);
+
+        // Update is_personal_lead when team lead authorizes
+        if ($user->designation === 'team_lead' && $request->status === 'authorized') {
+            $data['is_personal_lead'] = false;
+        }
+
+        if ($lead->lead_type === 'personal_loan' || $lead->lead_type === 'home_loan') {
+            $data = array_merge($data, $request->only([
+                'name',
+                'phone',
+                'email',
+                'dob',
+                'location',
+                'company_name',
+                'lead_amount',
+                'salary',
+                'success_percentage',
+                'expected_month',
+                'remarks',
+            ]));
+        } elseif ($lead->lead_type === 'business_loan') {
+            $data = array_merge($data, $request->only([
+                'phone',
+                'email',
+                'location',
+                'lead_amount',
+                'turnover_amount',
+                'vintage_year',
+                'success_percentage',
+                'remarks',
+            ]));
+            if ($request->has('business_name')) {
+                $data['name'] = $request->business_name;
+            }
+        } elseif ($lead->lead_type === 'creditcard_loan') {
+            $data = array_merge($data, $request->only([
+                'name',
+                'phone',
+                'email',
+                'bank_name',
+            ]));
+        }
 
         // Handle voice recording if provided
         if ($request->hasFile('voice_recording')) {
-            // Delete old recording if exists
             if ($lead->voice_recording) {
                 Storage::disk('public')->delete(str_replace('/storage/', '', $lead->voice_recording));
             }
@@ -413,8 +579,8 @@ class LeadController extends Controller
      */
     public function destroy(Lead $lead): JsonResponse
     {
-        // Restrict deletion to the lead's employee or team lead
-        if (Auth::id() !== $lead->employee_id && Auth::id() !== $lead->team_lead_id) {
+        $user = Auth::user();
+        if ($user->designation !== 'team_lead' && Auth::id() !== $lead->employee_id) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Unauthorized to delete this lead',
