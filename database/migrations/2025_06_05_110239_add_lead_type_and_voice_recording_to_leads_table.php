@@ -26,6 +26,7 @@ return new class extends Migration
         if (!Schema::hasColumn('leads', 'bank_name')) {
             $table->string('bank_name')->nullable()->after('vintage_year');
         }
+        $table->softDeletes();
       
         });
     }

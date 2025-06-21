@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
+use Exception;
 use Illuminate\Support\Facades\Storage;
 
 class LeadController extends Controller
@@ -75,7 +76,7 @@ class LeadController extends Controller
                         'message' => 'Start date must be before end date',
                     ], 400);
                 }
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Invalid date format',
@@ -152,7 +153,7 @@ class LeadController extends Controller
         ];
 
         $loginLeads = [
-            'count' => $query->clone()->where('status', 'login')->count(),
+            'count'=> $query->clone()->where('status', 'login')->count(),
             'total_amount' => $query->clone()->where('status', 'login')->sum('lead_amount'),
         ];
 
@@ -200,10 +201,10 @@ class LeadController extends Controller
         $leadType = $request->input('lead_type');
         
         // Common validation rules
-        $commonRules = [
-            'lead_type' => 'required|string|in:personal_loan,home_loan,business_loan,creditcard_loan',
-            'team_lead_id' => 'nullable|exists:users,id',
-            'voice_recording' => 'nullable|file|mimes:mp3,wav|max:10240',
+       $commonRules = [
+        'lead_type' => 'required|string|in:personal_loan,home_loan,business_loan,creditcard_loan',
+        'team_lead_id' => 'nullable|exists:users,id',
+        'voice_recording' => 'nullable|file|mimes:mp3,wav,aac,m4a,ogg,flac|max:10240',
         ];
 
         // Specific validation rules based on lead_type
@@ -229,8 +230,9 @@ class LeadController extends Controller
                 'email' => 'nullable|string|email|max:255',
                 'location' => 'required|string|max:255',
                 'lead_amount' => 'required|numeric|min:0',
-                'turnover_amount' => 'required|numeric|min:5000000',
-                'vintage_year' => 'required|integer|min:2',
+                'turnover_amount' => 'nullable|numeric|min:5000000',
+                'vintage_year' => 'nullable|integer|min:2',
+                'it_return' => 'nullable|numeric|min:0',
                 'success_percentage' => 'nullable|integer|min:0|max:100',
                 'remarks' => 'nullable|string',
             ];
@@ -292,6 +294,7 @@ class LeadController extends Controller
                 'lead_amount' => $request->lead_amount,
                 'turnover_amount' => $request->turnover_amount,
                 'vintage_year' => $request->vintage_year,
+                'it_return' => $request->it_return,
                 'success_percentage' => $request->success_percentage,
                 'remarks' => $request->remarks,
             ]);
@@ -389,8 +392,9 @@ class LeadController extends Controller
                 'email' => $lead->email,
                 'location' => $lead->location,
                 'lead_amount' => number_format($lead->lead_amount, 2, '.', ''),
-                'turnover_amount' => $lead->turnover_amount,
+                'turnover_amount' => number_format($lead->turnover_amount, 2, '.', ''),
                 'vintage_year' => $lead->vintage_year,
+                'it_return' => number_format($lead->it_return, 2, '.', ''),
                 'success_percentage' => $lead->success_percentage,
                 'remarks' => $lead->remarks,
             ]);
@@ -451,9 +455,9 @@ class LeadController extends Controller
 
         // Common validation rules
         $commonRules = [
-            'status' => 'sometimes|string|in:' . implode(',', $validStatuses),
-            'team_lead_id' => 'sometimes|exists:users,id',
-            'voice_recording' => 'nullable|file|mimes:mp3,wav|max:10240',
+        'lead_type' => 'required|string|in:personal_loan,home_loan,business_loan,creditcard_loan',
+        'team_lead_id' => 'nullable|exists:users,id',
+        'voice_recording' => 'nullable|file|mimes:mp3,wav,aac,m4a,ogg,flac|max:10240',
         ];
 
         // Specific validation rules based on lead_type
@@ -481,6 +485,7 @@ class LeadController extends Controller
                 'lead_amount' => 'sometimes|numeric|min:0',
                 'turnover_amount' => 'sometimes|numeric|min:5000000',
                 'vintage_year' => 'sometimes|integer|min:2',
+                'it_return' => 'sometimes|numeric|min:0',
                 'success_percentage' => 'sometimes|integer|min:0|max:100',
                 'remarks' => 'nullable|string',
             ];
@@ -536,6 +541,7 @@ class LeadController extends Controller
                 'lead_amount',
                 'turnover_amount',
                 'vintage_year',
+                'it_return',
                 'success_percentage',
                 'remarks',
             ]));

@@ -36,6 +36,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/leads/{lead}', [LeadController::class, 'show']);
     Route::post('/leads/{lead}', [LeadController::class, 'update']);
     Route::delete('/leads/{lead}', [LeadController::class, 'destroy']);
+    Route::post('leads/{id}/restore', [LeadController::class, 'restore']);
+    Route::delete('leads/{id}/force', [LeadController::class, 'forceDelete']);
 
     // Task API (Add this for full CRUD)
     Route::get('/tasks', [TaskController::class, 'index']);

@@ -4,34 +4,35 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
 
 class Lead extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
-    'employee_id',
-    'team_lead_id',
-    'name',
-    'phone',
-    'email',
-    'dob',
-    'location',
-    'company_name',
-    'lead_amount',
-    'salary',
-    'success_percentage',
-    'expected_month',
-    'remarks',
-    'status',
-    'lead_type',
-    'voice_recording',
-    'is_personal_lead',
-    'turnover_amount',
-    'vintage_year',
-    'it_return',
-    'bank_name'
+        'employee_id',
+        'team_lead_id',
+        'name',
+        'phone',
+        'email',
+        'dob',
+        'location',
+        'company_name',
+        'lead_amount',
+        'salary',
+        'success_percentage',
+        'expected_month',
+        'remarks',
+        'status',
+        'lead_type',
+        'voice_recording',
+        'is_personal_lead',
+        'turnover_amount',
+        'vintage_year',
+        'it_return',
+        'bank_name',
     ];
 
     protected $casts = [
@@ -39,35 +40,36 @@ class Lead extends Model
         'lead_amount' => 'decimal:2',
         'salary' => 'decimal:2',
         'turnover_amount' => 'decimal:2',
+        'it_return' => 'decimal:2',
         'success_percentage' => 'integer',
-        'vintage_year' => 'integer',    
+        'vintage_year' => 'integer',
         'status' => 'string',
-        'lead_type' => 'string', 
+        'lead_type' => 'string',
         'is_personal_lead' => 'boolean',
+        'deleted_at' => 'datetime',
     ];
+
     protected $attributes = [
         'is_personal_lead' => true,
     ];
- public function getVoiceRecordingUrlAttribute()
+
+    public function getVoiceRecordingUrlAttribute()
     {
         return $this->voice_recording ? Storage::url($this->voice_recording) : null;
     }
 
-    // Employee who created the lead
     public function employee()
     {
         return $this->belongsTo(User::class, 'employee_id');
     }
 
-    // Team Lead assigned to review the lead
     public function teamLead()
     {
         return $this->belongsTo(User::class, 'team_lead_id');
     }
 
-    // Notifications related to this lead
-    public function notifications()
+    public function histories()
     {
-        return $this->hasMany(Notification::class, 'lead_id');
+        return $this->hasMany(LeadHistory::class, 'lead_id');
     }
 }
