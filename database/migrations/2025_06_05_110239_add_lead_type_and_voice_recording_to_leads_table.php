@@ -16,6 +16,17 @@ return new class extends Migration
             $table->string('lead_type')->nullable()->after('status');
             $table->string('voice_recording')->nullable()->after('lead_type');
             $table->boolean('is_personal_lead')->nullable()->after('status')->default(true);
+            if (!Schema::hasColumn('leads', 'turnover_amount')) {
+                
+            $table->decimal('turnover_amount', 12, 2)->nullable()->after('is_personal_lead');
+        }
+        if (!Schema::hasColumn('leads', 'vintage_year')) {
+            $table->integer('vintage_year')->nullable()->after('turnover_amount');
+        }
+        if (!Schema::hasColumn('leads', 'bank_name')) {
+            $table->string('bank_name')->nullable()->after('vintage_year');
+        }
+        $table->softDeletes();
       
         });
     }

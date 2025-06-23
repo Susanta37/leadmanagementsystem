@@ -36,6 +36,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/leads/{lead}', [LeadController::class, 'show']);
     Route::post('/leads/{lead}', [LeadController::class, 'update']);
     Route::delete('/leads/{lead}', [LeadController::class, 'destroy']);
+    Route::post('leads/{id}/restore', [LeadController::class, 'restore']);
+    Route::delete('leads/{id}/force', [LeadController::class, 'forceDelete']);
 
     // Task API (Add this for full CRUD)
     Route::get('/tasks', [TaskController::class, 'index']);
@@ -48,7 +50,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/attendances', [AttendanceController::class, 'index']);
     Route::post('/attendances', [AttendanceController::class, 'store']);
     Route::post('/attendances/{attendance}', [AttendanceController::class, 'update']);
-
+    Route::get('/attendance/status', [AttendanceController::class, 'checkTodayStatus']);
+    Route::post('/attendance/location', [AttendanceController::class, 'updateLocation']);
+    Route::get('/geofence-settings', [AttendanceController::class, 'getGeofenceSettings']);
+    
     //Team view api
     Route::get('/teams', [TeamController::class, 'index']);
 

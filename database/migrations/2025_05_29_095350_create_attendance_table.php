@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('employee_id')->constrained('users')->onDelete('cascade');
             $table->date('date');
-            $table->timestamp('check_in');
+            $table->timestamp('check_in')->nullable();
             $table->timestamp('check_out')->nullable();
 
             $table->string('check_in_location')->nullable();
@@ -35,6 +35,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('attendance');
+        Schema::dropIfExists('attendances');
     }
 };

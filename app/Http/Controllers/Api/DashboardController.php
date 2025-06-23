@@ -21,11 +21,13 @@ class DashboardController extends Controller
         $dateFilter = $request->query('date_filter', 'this_month');
         $startDate = $request->query('start_date');
         $endDate = $request->query('end_date');
+        $expectedMonth = $request->query('expected_month', 'all');
 
         // Validate filter parameters
         $validLeadTypes = ['all', 'personal_loan', 'business_loan', 'home_loan', 'creditcard_loan'];
-        $validStatuses = ['all', 'pending', 'approved', 'completed', 'rejected'];
+        $validStatuses = ['all', 'personal_lead', 'authorized', 'approved', 'completed', 'rejected'];
         $validDateFilters = ['this_month', 'this_week', 'this_year', 'date_range'];
+        $validExpectedMonths = ['all', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
         if (!in_array($leadType, $validLeadTypes)) {
             return response()->json([
@@ -45,6 +47,13 @@ class DashboardController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Invalid date filter',
+            ], 400);
+        }
+
+        if (!in_array($expectedMonth, $validExpectedMonths)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Invalid expected month',
             ], 400);
         }
 
@@ -77,6 +86,11 @@ class DashboardController extends Controller
         $query = Lead::query();
         if ($user->designation !== 'team_lead') {
             $query->where('employee_id', $user->id);
+        } else {
+            $query->where(function ($q) use ($user) {
+                $q->where('employee_id', $user->id)
+                  ->orWhere('team_lead_id', $user->id);
+            });
         }
 
         // Apply date filter
@@ -92,6 +106,11 @@ class DashboardController extends Controller
             $query->whereBetween('created_at', [$startDate->startOfDay(), $endDate->endOfDay()]);
         }
 
+        // Apply expected month filter
+        if ($expectedMonth !== 'all') {
+            $query->where('expected_month', $expectedMonth);
+        }
+
         // Apply lead type filter
         if ($leadType !== 'all') {
             $query->where('lead_type', $leadType);
@@ -105,27 +124,32 @@ class DashboardController extends Controller
         // Get aggregates
         $totalLeads = [
             'count' => $query->count(),
-            'total_amount' => $query->sum('lead_amount'),
+            'total_amount' => $query->sum('lead_amount') ?? 0,
+        ];
+
+        $personalLeads = [
+            'count' => $query->clone()->where('status', 'personal_lead')->count(),
+            'total_amount' => $query->clone()->where('status', 'personal_lead')->sum('lead_amount') ?? 0,
+        ];
+
+        $authorizedLeads = [
+            'count' => $query->clone()->where('status', 'authorized')->count(),
+            'total_amount' => $query->clone()->where('status', 'authorized')->sum('lead_amount') ?? 0,
         ];
 
         $approvedLeads = [
             'count' => $query->clone()->where('status', 'approved')->count(),
-            'total_amount' => $query->clone()->where('status', 'approved')->sum('lead_amount'),
+            'total_amount' => $query->clone()->where('status', 'approved')->sum('lead_amount') ?? 0,
         ];
 
-        $disbursedLeads = [
+        $completedLeads = [
             'count' => $query->clone()->where('status', 'completed')->count(),
-            'total_amount' => $query->clone()->where('status', 'completed')->sum('lead_amount'),
-        ];
-
-        $pendingLeads = [
-            'count' => $query->clone()->where('status', 'pending')->count(),
-            'total_amount' => $query->clone()->where('status', 'pending')->sum('lead_amount'),
+            'total_amount' => $query->clone()->where('status', 'completed')->sum('lead_amount') ?? 0,
         ];
 
         $rejectedLeads = [
             'count' => $query->clone()->where('status', 'rejected')->count(),
-            'total_amount' => $query->clone()->where('status', 'rejected')->sum('lead_amount'),
+            'total_amount' => $query->clone()->where('status', 'rejected')->sum('lead_amount') ?? 0,
         ];
 
         // Get lead type breakdowns
@@ -135,6 +159,11 @@ class DashboardController extends Controller
         $baseQuery = Lead::query();
         if ($user->designation !== 'team_lead') {
             $baseQuery->where('employee_id', $user->id);
+        } else {
+            $baseQuery->where(function ($q) use ($user) {
+                $q->where('employee_id', $user->id)
+                  ->orWhere('team_lead_id', $user->id);
+            });
         }
 
         // Apply date filter to lead type breakdown
@@ -149,6 +178,11 @@ class DashboardController extends Controller
             $baseQuery->whereBetween('created_at', [$startDate->startOfDay(), $endDate->endOfDay()]);
         }
 
+        // Apply expected month filter to lead type breakdown
+        if ($expectedMonth !== 'all') {
+            $baseQuery->where('expected_month', $expectedMonth);
+        }
+
         foreach ($leadTypes as $type) {
             $typeQuery = $baseQuery->clone()->where('lead_type', $type);
             if ($status !== 'all') {
@@ -161,6 +195,7 @@ class DashboardController extends Controller
                     'name' => $lead->name,
                     'lead_amount' => $lead->lead_amount,
                     'status' => $lead->status,
+                    'expected_month' => $lead->expected_month,
                     'created_at' => $lead->created_at,
                     'employee' => [
                         'name' => $lead->employee->name,
@@ -174,7 +209,7 @@ class DashboardController extends Controller
 
             $leadTypeBreakdown[$type] = [
                 'count' => $typeQuery->count(),
-                'total_amount' => $typeQuery->sum('lead_amount'),
+                'total_amount' => $typeQuery->sum('lead_amount') ?? 0,
                 'leads' => $leads,
             ];
         }
@@ -189,9 +224,10 @@ class DashboardController extends Controller
                 ],
                 'aggregates' => [
                     'total_leads' => $totalLeads,
+                    'personal_leads' => $personalLeads,
+                    'authorized_leads' => $authorizedLeads,
                     'approved_leads' => $approvedLeads,
-                    'disbursed_leads' => $disbursedLeads,
-                    'pending_leads' => $pendingLeads,
+                    'completed_leads' => $completedLeads,
                     'rejected_leads' => $rejectedLeads,
                 ],
                 'lead_type_breakdown' => $leadTypeBreakdown,
@@ -201,6 +237,7 @@ class DashboardController extends Controller
                     'date_filter' => $dateFilter,
                     'start_date' => $startDate ?? null,
                     'end_date' => $endDate ?? null,
+                    'expected_month' => $expectedMonth,
                 ],
             ],
         ], 200);
