@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Lead;
+use App\Models\LeadHistory;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -12,16 +13,17 @@ use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 
 class LeadController extends Controller
 {
     /**
-     * Get a list of all leads.
+     * Get a list of all leads with enhanced filtering
      *
      * @param Request $request
      * @return JsonResponse
      */
-    public function index(Request $request): JsonResponse
+     public function index(Request $request): JsonResponse
     {
         $user = Auth::user();
         
@@ -31,10 +33,12 @@ class LeadController extends Controller
         $dateFilter = $request->query('date_filter', 'this_month');
         $startDate = $request->query('start_date');
         $endDate = $request->query('end_date');
+        $includeDeleted = filter_var($request->query('include_deleted', false), FILTER_VALIDATE_BOOLEAN);
+        $search = $request->query('search');
         
         // Validate filter parameters
         $validLeadTypes = ['all', 'personal_loan', 'home_loan', 'business_loan', 'creditcard_loan'];
-        $validStatuses = ['all', 'pending', 'authorized', 'login', 'approved', 'disbursed', 'rejected'];
+        $validStatuses = ['all', 'personal_lead', 'pending', 'authorized', 'login', 'approved', 'disbursed', 'rejected', 'future_lead'];
         $validDateFilters = ['this_month', 'this_week', 'this_year', 'date_range'];
         
         if (!in_array($leadType, $validLeadTypes)) {
@@ -86,12 +90,31 @@ class LeadController extends Controller
 
         // Base query based on user role
         $query = Lead::query();
-        if ($user->designation !== 'team_lead' && $user->designation !== 'operations') {
+        if ($includeDeleted && $user->designation === 'admin') {
+            $query->withTrashed();
+        } elseif ($includeDeleted) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Only admins can view deleted leads',
+            ], 403);
+        }
+        
+        if ($user->designation !== 'team_lead' && $user->designation !== 'operations' && $user->designation !== 'admin') {
             $query->where('employee_id', $user->id);
         } elseif ($user->designation === 'team_lead') {
             $query->where(function ($q) use ($user) {
                 $q->where('employee_id', $user->id)
                   ->orWhere('team_lead_id', $user->id);
+            });
+        }
+
+        // Apply search filter
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('phone', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhere('bank_name', 'like', "%{$search}%");
             });
         }
 
@@ -109,7 +132,9 @@ class LeadController extends Controller
         }
 
         // Apply lead type filter
-        if ($leadType !== 'all') {
+        if ($leadType === 'all') {
+            $query->whereNotIn('lead_type', ['creditcard_loan']);
+        } else {
             $query->where('lead_type', $leadType);
         }
 
@@ -119,71 +144,48 @@ class LeadController extends Controller
         }
 
         // Get all leads with relationships
-        $leads = $query->with(['employee', 'teamLead'])->get();
+        $leads = $query->with(['employee', 'teamLead', 'histories' => function ($query) {
+            $query->orderBy('created_at', 'desc');
+        }])->orderBy('created_at', 'desc')->get();
 
         // Aggregate data
-        $totalLeads = [
-            'count' => $query->count(),
-            'total_amount' => $query->sum('lead_amount'),
+        $aggregates = [
+            'total_leads' => [
+                'count' => $query->count(),
+                'total_amount' => $query->sum('lead_amount'),
+            ],
+            'status_breakdown' => []
         ];
 
-        $approvedLeads = [
-            'count' => $query->clone()->where('status', 'approved')->count(),
-            'total_amount' => $query->clone()->where('status', 'approved')->sum('lead_amount'),
-        ];
-
-        $disbursedLeads = [
-            'count' => $query->clone()->where('status', 'disbursed')->count(),
-            'total_amount' => $query->clone()->where('status', 'disbursed')->sum('lead_amount'),
-        ];
-
-        $pendingLeads = [
-            'count' => $query->clone()->where('status', 'pending')->count(),
-            'total_amount' => $query->clone()->where('status', 'pending')->sum('lead_amount'),
-        ];
-
-        $rejectedLeads = [
-            'count' => $query->clone()->where('status', 'rejected')->count(),
-            'total_amount' => $query->clone()->where('status', 'rejected')->sum('lead_amount'),
-        ];
-
-        $authorizedLeads = [
-            'count' => $query->clone()->where('status', 'authorized')->count(),
-            'total_amount' => $query->clone()->where('status', 'authorized')->sum('lead_amount'),
-        ];
-
-        $loginLeads = [
-            'count'=> $query->clone()->where('status', 'login')->count(),
-            'total_amount' => $query->clone()->where('status', 'login')->sum('lead_amount'),
-        ];
+        foreach ($validStatuses as $validStatus) {
+            if ($validStatus !== 'all') {
+                $aggregates['status_breakdown'][$validStatus] = [
+                    'count' => $query->clone()->where('status', $validStatus)->count(),
+                    'total_amount' => $query->clone()->where('status', $validStatus)->sum('lead_amount'),
+                ];
+            }
+        }
 
         return response()->json([
             'status' => 'success',
             'message' => 'Leads retrieved successfully',
             'data' => [
                 'leads' => $leads,
-                'aggregates' => [
-                    'total_leads' => $totalLeads,
-                    'approved_leads' => $approvedLeads,
-                    'disbursed_leads' => $disbursedLeads,
-                    'pending_leads' => $pendingLeads,
-                    'rejected_leads' => $rejectedLeads,
-                    'authorized_leads' => $authorizedLeads,
-                    'login_leads' => $loginLeads,
-                ],
+                'aggregates' => $aggregates,
                 'filters_applied' => [
                     'lead_type' => $leadType,
                     'status' => $status,
                     'date_filter' => $dateFilter,
                     'start_date' => $startDate ?? null,
                     'end_date' => $endDate ?? null,
+                    'include_deleted' => $includeDeleted,
+                    'search' => $search,
                 ],
             ],
         ], 200);
     }
-
     /**
-     * Create a new lead.
+     * Create a new lead with history tracking
      *
      * @param Request $request
      * @return JsonResponse
@@ -191,7 +193,7 @@ class LeadController extends Controller
     public function store(Request $request): JsonResponse
     {
         $user = Auth::user();
-        if ($user->designation === 'operations') {
+        if ($user->designation === 'operations' && $user->designation !== 'admin') {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Operations team cannot create leads',
@@ -201,10 +203,11 @@ class LeadController extends Controller
         $leadType = $request->input('lead_type');
         
         // Common validation rules
-       $commonRules = [
-        'lead_type' => 'required|string|in:personal_loan,home_loan,business_loan,creditcard_loan',
-        'team_lead_id' => 'nullable|exists:users,id',
-        'voice_recording' => 'nullable|file|mimes:mp3,wav,aac,m4a,ogg,flac|max:10240',
+        $commonRules = [
+            'lead_type' => 'required|string|in:personal_loan,home_loan,business_loan,creditcard_loan',
+            'team_lead_id' => 'nullable|exists:users,id',
+            'voice_recording' => 'nullable|file|mimes:mp3,wav,aac,m4a,ogg,flac|max:10240',
+            'forward_to' => 'nullable|exists:users,id',
         ];
 
         // Specific validation rules based on lead_type
@@ -212,36 +215,37 @@ class LeadController extends Controller
         if ($leadType === 'personal_loan' || $leadType === 'home_loan') {
             $specificRules = [
                 'name' => 'required|string|max:255',
-                'phone' => 'required|string|max:15',
+                'phone' => 'required|string|regex:/^\+?[1-9]\d{1,14}$/',
                 'location' => 'required|string|max:255',
                 'lead_amount' => 'required|numeric|min:0',
                 'expected_month' => 'required|string|in:January,February,March,April,May,June,July,August,September,October,November,December',
                 'email' => 'nullable|string|email|max:255',
-                'dob' => 'nullable|date',
+                'dob' => 'nullable|date|before:today',
                 'company_name' => 'nullable|string|max:255',
                 'salary' => 'nullable|numeric|min:0',
                 'success_percentage' => 'nullable|integer|min:0|max:100',
-                'remarks' => 'nullable|string',
+                'remarks' => 'nullable|string|max:1000',
             ];
         } elseif ($leadType === 'business_loan') {
             $specificRules = [
                 'business_name' => 'required|string|max:255',
-                'phone' => 'required|string|max:15',
+                'phone' => 'required|string|regex:/^\+?[1-9]\d{1,14}$/',
                 'email' => 'nullable|string|email|max:255',
                 'location' => 'required|string|max:255',
                 'lead_amount' => 'required|numeric|min:0',
-                'turnover_amount' => 'nullable|numeric|min:5000000',
-                'vintage_year' => 'nullable|integer|min:2',
-                'it_return' => 'nullable|numeric|min:0',
+                'turnover_amount' => 'required|numeric|min:5000000',
+                'vintage_year' => 'required|integer|min:2',
+                'it_return' => 'required|numeric|min:0',
                 'success_percentage' => 'nullable|integer|min:0|max:100',
-                'remarks' => 'nullable|string',
+                'remarks' => 'nullable|string|max:1000',
             ];
         } elseif ($leadType === 'creditcard_loan') {
             $specificRules = [
                 'name' => 'required|string|max:255',
-                'phone' => 'required|string|max:15',
+                'phone' => 'required|string|regex:/^\+?[1-9]\d{1,14}$/',
                 'email' => 'required|string|email|max:255',
-                'bank_name' => 'required|string|max:255',
+                'bank_names' => 'required|array|min:1|max:2',
+                'bank_names.*' => 'required|string|max:255|distinct',
             ];
         }
 
@@ -255,77 +259,175 @@ class LeadController extends Controller
             ], 422);
         }
 
-        $voice_recording_path = null;
-        if ($request->hasFile('voice_recording')) {
-            $voice_recording_path = $request->file('voice_recording')->store('voice_recordings', 'public');
-        }
-        $final_voice_recording_path = $voice_recording_path ? '/storage/' . $voice_recording_path : null;
-
-        // Prepare data based on lead_type
-        $data = [
-            'employee_id' => Auth::id(),
-            'team_lead_id' => $request->team_lead_id,
-            'status' => 'personal_lead',
-            'lead_type' => $request->lead_type,
-            'voice_recording' => $final_voice_recording_path,
-            'is_personal_lead' => true,
-        ];
-
-        if ($leadType === 'personal_loan' || $leadType === 'home_loan') {
-            $data = array_merge($data, [
-                'name' => $request->name,
-                'phone' => $request->phone,
-                'email' => $request->email,
-                'dob' => $request->dob,
-                'location' => $request->location,
-                'company_name' => $request->company_name,
-                'lead_amount' => $request->lead_amount,
-                'salary' => $request->salary,
-                'success_percentage' => $request->success_percentage,
-                'expected_month' => $request->expected_month,
-                'remarks' => $request->remarks,
-            ]);
-        } elseif ($leadType === 'business_loan') {
-            $data = array_merge($data, [
-                'name' => $request->business_name,
-                'phone' => $request->phone,
-                'email' => $request->email,
-                'location' => $request->location,
-                'lead_amount' => $request->lead_amount,
-                'turnover_amount' => $request->turnover_amount,
-                'vintage_year' => $request->vintage_year,
-                'it_return' => $request->it_return,
-                'success_percentage' => $request->success_percentage,
-                'remarks' => $request->remarks,
-            ]);
-        } elseif ($leadType === 'creditcard_loan') {
-            $data = array_merge($data, [
-                'name' => $request->name,
-                'phone' => $request->phone,
-                'email' => $request->email,
-                'bank_name' => $request->bank_name,
-            ]);
+        // Validate forward_to user designation
+        if ($request->has('forward_to')) {
+            $forwardToUser = User::find($request->forward_to);
+            if (!$forwardToUser || !in_array($forwardToUser->designation, ['admin', 'team_lead', 'operations'])) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Forwarded user must have designation admin, team_lead, or operations',
+                ], 422);
+            }
         }
 
-        $lead = Lead::create($data);
-        $lead->load(['employee', 'teamLead']);
+        try {
+            DB::beginTransaction();
 
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Lead created successfully',
-            'data' => $lead,
-        ], 201);
+            $voice_recording_path = null;
+            if ($request->hasFile('voice_recording')) {
+                $voice_recording_path = $request->file('voice_recording')->store('voice_recordings', 'public');
+            }
+            $final_voice_recording_path = $voice_recording_path ? '/storage/' . $voice_recording_path : null;
+
+            // Prepare base data
+            $baseData = [
+                'employee_id' => Auth::id(),
+                'team_lead_id' => $request->team_lead_id,
+                'status' => 'personal_lead',
+                'lead_type' => $leadType,
+                'voice_recording' => $final_voice_recording_path,
+                'is_personal_lead' => true,
+            ];
+
+            $leads = [];
+            if ($leadType === 'creditcard_loan') {
+                // Create a lead for each bank_name
+                foreach ($request->bank_names as $bank) {
+                    $data = array_merge($baseData, [
+                        'name' => $request->name,
+                        'phone' => $request->phone,
+                        'email' => $request->email,
+                        'bank_name' => $bank,
+                    ]);
+
+                    $lead = Lead::create($data);
+                    LeadHistory::create([
+                        'lead_id' => $lead->id,
+                        'user_id' => Auth::id(),
+                        'action' => 'created',
+                        'status' => 'personal_lead',
+                        'forwarded_to' => $request->forward_to,
+                        'comments' => "Created credit card lead for bank: {$bank}" . 
+                                      ($request->forward_to ? " and forwarded to user ID {$request->forward_to}" : ''),
+                    ]);
+
+                    if ($request->forward_to) {
+                        $lead->update(['team_lead_id' => $request->forward_to]);
+                        LeadHistory::create([
+                            'lead_id' => $lead->id,
+                            'user_id' => Auth::id(),
+                            'action' => 'forwarded',
+                            'status' => 'personal_lead',
+                            'forwarded_to' => $request->forward_to,
+                            'comments' => "Forwarded to user ID {$request->forward_to}",
+                        ]);
+                    }
+
+                    $lead->load(['employee', 'teamLead', 'histories']);
+                    $leads[] = $lead;
+                }
+            } else {
+                // Prepare data based on lead_type
+                $data = $baseData;
+                if ($leadType === 'personal_loan' || $leadType === 'home_loan') {
+                    $data = array_merge($data, [
+                        'name' => $request->name,
+                        'phone' => $request->phone,
+                        'email' => $request->email,
+                        'dob' => $request->dob,
+                        'location' => $request->location,
+                        'company_name' => $request->company_name,
+                        'lead_amount' => $request->lead_amount,
+                        'salary' => $request->salary,
+                        'success_percentage' => $request->success_percentage,
+                        'expected_month' => $request->expected_month,
+                        'remarks' => $request->remarks,
+                    ]);
+                } elseif ($leadType === 'business_loan') {
+                    $data = array_merge($data, [
+                        'name' => $request->business_name,
+                        'phone' => $request->phone,
+                        'email' => $request->email,
+                        'location' => $request->location,
+                        'lead_amount' => $request->lead_amount,
+                        'turnover_amount' => $request->turnover_amount,
+                        'vintage_year' => $request->vintage_year,
+                        'it_return' => $request->it_return,
+                        'success_percentage' => $request->success_percentage,
+                        'remarks' => $request->remarks,
+                    ]);
+                }
+
+                $lead = Lead::create($data);
+                LeadHistory::create([
+                    'lead_id' => $lead->id,
+                    'user_id' => Auth::id(),
+                    'action' => 'created',
+                    'status' => 'personal_lead',
+                    'forwarded_to' => $request->forward_to,
+                    'comments' => 'Lead created' . 
+                                  ($request->forward_to ? " and forwarded to user ID {$request->forward_to}" : ''),
+                ]);
+
+                if ($request->forward_to) {
+                    $lead->update(['team_lead_id' => $request->forward_to]);
+                    LeadHistory::create([
+                        'lead_id' => $lead->id,
+                        'user_id' => Auth::id(),
+                        'action' => 'forwarded',
+                        'status' => 'personal_lead',
+                        'forwarded_to' => $request->forward_to,
+                        'comments' => "Forwarded to user ID {$request->forward_to}",
+                    ]);
+                }
+
+                $lead->load(['employee', 'teamLead', 'histories']);
+                $leads[] = $lead;
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => count($leads) > 1 ? 'Leads created successfully' : 'Lead created successfully',
+                'data' => $leads,
+            ], 201);
+
+        } catch (Exception $e) {
+            DB::rollBack();
+            if ($voice_recording_path) {
+                Storage::disk('public')->delete($voice_recording_path);
+            }
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to create lead: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**
-     * Get a specific lead by ID.
+     * Get a specific lead by ID with history
      *
      * @param Lead $lead
      * @return JsonResponse
      */
     public function show(Lead $lead): JsonResponse
     {
-        $lead->load(['employee', 'teamLead']);
+        $user = Auth::user();
+        if ($lead->trashed() && $user->designation !== 'admin') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Lead not found',
+            ], 404);
+        }
+
+        $lead->load([
+            'employee',
+            'teamLead',
+            'histories' => function ($query) {
+                $query->orderBy('created_at', 'desc')->with('user');
+            }
+        ]);
 
         return response()->json([
             'status' => 'success',
@@ -335,7 +437,7 @@ class LeadController extends Controller
     }
 
     /**
-     * Get lead data for editing.
+     * Get lead data for editing
      *
      * @param Lead $lead
      * @return JsonResponse
@@ -343,16 +445,28 @@ class LeadController extends Controller
     public function edit(Lead $lead): JsonResponse
     {
         $user = Auth::user();
-        // Restrict access based on user role and lead status
-        if ($user->designation !== 'team_lead' && $user->designation !== 'operations' && Auth::id() !== $lead->employee_id) {
+        if ($lead->trashed() && $user->designation !== 'admin') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Lead not found',
+            ], 404);
+        }
+
+        if ($user->designation !== 'team_lead' && $user->designation !== 'operations' && 
+            $user->designation !== 'admin' && !($lead->is_personal_lead && Auth::id() === $lead->employee_id)) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Unauthorized to edit this lead',
             ], 403);
         }
 
-        // Load relationships
-        $lead->load(['employee', 'teamLead']);
+        $lead->load([
+            'employee',
+            'teamLead',
+            'histories' => function ($query) {
+                $query->orderBy('created_at', 'desc')->with('user');
+            }
+        ]);
 
         $leadData = [
             'id' => $lead->id,
@@ -362,13 +476,15 @@ class LeadController extends Controller
             'team_lead_id' => $lead->team_lead_id,
             'is_personal_lead' => $lead->is_personal_lead,
             'created_at' => $lead->created_at->toISOString(),
+            'deleted_at' => $lead->deleted_at ? $lead->deleted_at->toISOString() : null,
             'employee' => [
                 'name' => $lead->employee ? $lead->employee->email : null,
                 'profile_photo_url' => null,
                 'pan_card_url' => null,
                 'aadhar_card_url' => null,
-                'signature_url' => null
-            ]
+                'signature_url' => null,
+            ],
+            'histories' => $lead->histories,
         ];
 
         if ($lead->lead_type === 'personal_loan' || $lead->lead_type === 'home_loan') {
@@ -411,13 +527,13 @@ class LeadController extends Controller
             'status' => 'success',
             'message' => 'Lead data retrieved for editing',
             'data' => [
-                'lead' => $leadData
-            ]
+                'lead' => $leadData,
+            ],
         ], 200);
     }
 
     /**
-     * Update an existing lead.
+     * Update an existing lead with history tracking
      *
      * @param Request $request
      * @param Lead $lead
@@ -427,37 +543,55 @@ class LeadController extends Controller
     {
         $user = Auth::user();
 
-        // Role-based access control
-        if ($user->designation !== 'team_lead' && $user->designation !== 'operations' && Auth::id() !== $lead->employee_id) {
+        if ($lead->trashed() && $user->designation !== 'admin') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Lead not found',
+            ], 404);
+        }
+
+        if ($user->designation !== 'team_lead' && $user->designation !== 'operations' && 
+            $user->designation !== 'admin' && !($lead->is_personal_lead && Auth::id() === $lead->employee_id)) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Unauthorized to update this lead',
             ], 403);
         }
 
-        // Validate status transitions based on user role
+        // Define status transitions
+        $statusTransitions = [
+            'team_lead' => [
+                'personal_lead' => ['pending', 'rejected', 'future_lead'],
+                'future_lead' => ['pending', 'rejected'],
+                'pending' => ['authorized', 'rejected'],
+                'authorized' => ['login', 'rejected'],
+            ],
+            'operations' => [
+                'login' => ['approved', 'rejected'],
+                'approved' => ['disbursed', 'rejected'],
+            ],
+            'admin' => ['personal_lead', 'pending', 'authorized', 'login', 'approved', 'disbursed', 'rejected', 'future_lead'],
+            'employee' => ['personal_lead', 'future_lead'],
+        ];
+
         $validStatuses = [];
-        if ($user->designation === 'team_lead') {
-            if ($lead->status === 'pending') {
-                $validStatuses = ['authorized', 'rejected'];
-            } elseif ($lead->status === 'authorized') {
-                $validStatuses = ['login', 'rejected'];
-            }
+        if ($user->designation === 'admin') {
+            $validStatuses = $statusTransitions['admin'];
+        } elseif ($user->designation === 'team_lead') {
+            $validStatuses = $statusTransitions['team_lead'][$lead->status] ?? [];
         } elseif ($user->designation === 'operations') {
-            if ($lead->status === 'login') {
-                $validStatuses = ['approved', 'rejected'];
-            } elseif ($lead->status === 'approved') {
-                $validStatuses = ['disbursed', 'rejected'];
-            }
+            $validStatuses = $statusTransitions['operations'][$lead->status] ?? [];
         } elseif ($lead->is_personal_lead && Auth::id() === $lead->employee_id) {
-            $validStatuses = ['pending'];
+            $validStatuses = $statusTransitions['employee'];
         }
 
         // Common validation rules
         $commonRules = [
-        'lead_type' => 'required|string|in:personal_loan,home_loan,business_loan,creditcard_loan',
-        'team_lead_id' => 'nullable|exists:users,id',
-        'voice_recording' => 'nullable|file|mimes:mp3,wav,aac,m4a,ogg,flac|max:10240',
+            'status' => 'sometimes|string|in:' . implode(',', $validStatuses),
+            'team_lead_id' => 'sometimes|nullable|exists:users,id',
+            'voice_recording' => 'nullable|file|mimes:mp3,wav,aac,m4a,ogg,flac|max:20480',
+            'forward_to' => 'nullable|exists:users,id',
+            'forward_notes' => 'nullable|string|max:5000',
         ];
 
         // Specific validation rules based on lead_type
@@ -465,38 +599,43 @@ class LeadController extends Controller
         if ($lead->lead_type === 'personal_loan' || $lead->lead_type === 'home_loan') {
             $specificRules = [
                 'name' => 'sometimes|string|max:255',
-                'phone' => 'sometimes|string|max:15',
-                'email' => 'sometimes|string|email|max:255',
-                'dob' => 'nullable|date',
+                'phone' => 'sometimes|string|regex:/^\+?[1-9]\d{1,14}$/',
+                'email' => 'sometimes|nullable|string|email|max:255',
+                'dob' => 'nullable|date|before:today',
                 'location' => 'sometimes|string|max:255',
-                'company_name' => 'sometimes|string|max:255',
-                'lead_amount' => 'sometimes|numeric|min:0',
-                'salary' => 'nullable|numeric|min:0',
-                'success_percentage' => 'sometimes|integer|min:0|max:100',
-                'expected_month' => 'nullable|string|in:January,February,March,April,May,June,July,August,September,October,November,December',
-                'remarks' => 'nullable|string',
+                'company_name' => 'sometimes|nullable|string|max:255',
+                'lead_amount' => 'sometimes|amount',
+                'salary' => 'sometimes|nullable|numeric|min:0',
+                'success_percentage' => 'sometimes|nullable|integer|min:0|max:100',
+                'expected_month' => 'sometimes|nullable|string|in:January,February,March,April,May,June,July,August,September,October,November,December',
+                'remarks' => 'sometimes|nullable|string|max:1000',
             ];
         } elseif ($lead->lead_type === 'business_loan') {
             $specificRules = [
                 'business_name' => 'sometimes|string|max:255',
-                'phone' => 'sometimes|string|max:15',
-                'email' => 'sometimes|string|email|max:255',
+                'phone' => 'sometimes|string|regex:/^\+?[1-9]\d{1,14}$/',
+                'email' => 'sometimes|nullable|string|email|max:255',
                 'location' => 'sometimes|string|max:255',
-                'lead_amount' => 'sometimes|numeric|min:0',
-                'turnover_amount' => 'sometimes|numeric|min:5000000',
-                'vintage_year' => 'sometimes|integer|min:2',
-                'it_return' => 'sometimes|numeric|min:0',
-                'success_percentage' => 'sometimes|integer|min:0|max:100',
-                'remarks' => 'nullable|string',
+                'lead_amount' => 'sometimes|amount',
+                'turnover_amount' => 'sometimes|nullable|numeric|min:5000000',
+                'vintage_year' => 'sometimes|nullable|integer|min:2',
+                'it_return' => 'sometimes|nullable|numeric|min:0',
+                'success_percentage' => 'sometimes|nullable|integer|min:0|max:100',
+                'remarks' => 'sometimes|nullable|string|max:1000',
             ];
         } elseif ($lead->lead_type === 'creditcard_loan') {
             $specificRules = [
                 'name' => 'sometimes|string|max:255',
-                'phone' => 'sometimes|string|max:15',
+                'phone' => 'sometimes|string|regex:/^\+?[1-9]\d{1,14}$/',
                 'email' => 'sometimes|string|email|max:255',
                 'bank_name' => 'sometimes|string|max:255',
             ];
         }
+
+        // Register custom amount validator
+        Validator::extend('amount', function ($attribute, $value) {
+            return is_numeric($value) && $value >= 0 && preg_match('/^\d+(\.\d{1,2})?$/', $value);
+        }, 'The :attribute must be a valid amount with up to 2 decimal places.');
 
         $validator = Validator::make($request->all(), array_merge($commonRules, $specificRules));
 
@@ -508,77 +647,126 @@ class LeadController extends Controller
             ], 422);
         }
 
-        // Initialize data with validated request fields
-        $data = $request->only([
-            'status',
-            'team_lead_id',
-        ]);
-
-        // Update is_personal_lead when team lead authorizes
-        if ($user->designation === 'team_lead' && $request->status === 'authorized') {
-            $data['is_personal_lead'] = false;
+        // Validate forward_to user designation
+        if ($request->has('forward_to')) {
+            $forwardToUser = User::find($request->forward_to);
+            if (!$forwardToUser || !in_array($forwardToUser->designation, ['admin', 'team_lead', 'operations'])) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Forwarded user must have designation admin, team_lead, or operations',
+                ], 422);
+            }
         }
 
-        if ($lead->lead_type === 'personal_loan' || $lead->lead_type === 'home_loan') {
-            $data = array_merge($data, $request->only([
-                'name',
-                'phone',
-                'email',
-                'dob',
-                'location',
-                'company_name',
-                'lead_amount',
-                'salary',
-                'success_percentage',
-                'expected_month',
-                'remarks',
-            ]));
-        } elseif ($lead->lead_type === 'business_loan') {
-            $data = array_merge($data, $request->only([
-                'phone',
-                'email',
-                'location',
-                'lead_amount',
-                'turnover_amount',
-                'vintage_year',
-                'it_return',
-                'success_percentage',
-                'remarks',
-            ]));
-            if ($request->has('business_name')) {
+        try {
+            DB::beginTransaction();
+
+            // Initialize data with validated fields
+            $data = $request->only(array_keys(array_merge($commonRules, $specificRules)));
+
+            // Update is_personal_lead when team lead authorizes
+            if ($user->designation === 'team_lead' && $request->status === 'authorized') {
+                $data['is_personal_lead'] = false;
+            }
+
+            if ($lead->lead_type === 'business_loan' && $request->has('business_name')) {
                 $data['name'] = $request->business_name;
             }
-        } elseif ($lead->lead_type === 'creditcard_loan') {
-            $data = array_merge($data, $request->only([
-                'name',
-                'phone',
-                'email',
-                'bank_name',
-            ]));
-        }
 
-        // Handle voice recording if provided
-        if ($request->hasFile('voice_recording')) {
-            if ($lead->voice_recording) {
-                Storage::disk('public')->delete(str_replace('/storage/', '', $lead->voice_recording));
+            // Handle voice recording
+            if ($request->hasFile('voice_recording')) {
+                if ($lead->voice_recording) {
+                    Storage::disk('public')->delete(str_replace('/storage/', '', $lead->voice_recording));
+                }
+                $data['voice_recording'] = '/storage/' . $request->file('voice_recording')->store('voice_recordings', 'public');
+                LeadHistory::create([
+                    'lead_id' => $lead->id,
+                    'user_id' => Auth::id(),
+                    'action' => 'voice_recording_updated',
+                    'status' => $lead->status,
+                    'comments' => 'Voice recording updated',
+                ]);
             }
-            $data['voice_recording'] = '/storage/' . $request->file('voice_recording')->store('voice_recordings', 'public');
+
+            // Log changes
+            $changes = [];
+            foreach ($data as $key => $value) {
+                if ($key !== 'forward_to' && $key !== 'forward_notes' && 
+                    $lead->$key != $value && !(is_null($lead->$key) && is_null($value))) {
+                    $changes[$key] = [
+                        'old' => $lead->$key,
+                        'new' => $value,
+                    ];
+                }
+            }
+
+            // Log status change
+            if ($request->has('status') && $request->status !== $lead->status) {
+                LeadHistory::create([
+                    'lead_id' => $lead->id,
+                    'user_id' => Auth::id(),
+                    'action' => 'status_change',
+                    'status' => $request->status,
+                    'comments' => "Status changed from {$lead->status} to {$request->status}",
+                ]);
+            }
+
+            // Log forwarding
+            if ($request->has('forward_to') && $request->forward_to != $lead->team_lead_id) {
+                $data['team_lead_id'] = $request->forward_to;
+                LeadHistory::create([
+                    'lead_id' => $lead->id,
+                    'user_id' => Auth::id(),
+                    'action' => 'forwarded',
+                    'status' => $lead->status,
+                    'forwarded_to_user_id' => $request->forward_to,
+                    'comments' => $request->forward_notes
+                        ? "Forwarded to user ID {$request->forward_to}: {$request->forward_notes}"
+                        : "Forwarded to user ID {$request->forward_to}",
+                ]);
+            }
+
+            // Log other changes
+            if ($changes) {
+                LeadHistory::create([
+                    'lead_id' => $lead->id,
+                    'user_id' => Auth::id(),
+                    'action' => 'updated',
+                    'status' => $lead->status,
+                    'comments' => 'Updated fields: ' . json_encode($changes),
+                ]);
+            }
+
+            // Update lead
+            $lead->update($data);
+
+            $lead->load([
+                'employee',
+                'teamLead',
+                'histories' => function ($query) {
+                    $query->orderBy('created_at', 'desc')->with('user');
+                }
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Lead updated successfully',
+                'data' => $lead,
+            ], 200);
+
+        } catch (Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to update lead: ' . $e->getMessage(),
+            ], 500);
         }
-
-        // Update the lead with the data
-        $lead->update($data);
-
-        $lead->load(['employee', 'teamLead']);
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Lead updated successfully',
-            'data' => $lead,
-        ], 200);
     }
 
     /**
-     * Delete a lead.
+     * Soft delete a lead with history
      *
      * @param Lead $lead
      * @return JsonResponse
@@ -586,18 +774,161 @@ class LeadController extends Controller
     public function destroy(Lead $lead): JsonResponse
     {
         $user = Auth::user();
-        if ($user->designation !== 'team_lead' && Auth::id() !== $lead->employee_id) {
+        
+        if ($user->designation !== 'team_lead' && $user->designation !== 'admin' && 
+            !($lead->is_personal_lead && Auth::id() === $lead->employee_id)) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Unauthorized to delete this lead',
             ], 403);
         }
 
-        $lead->delete();
+        if ($lead->trashed()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Lead is already deleted',
+            ], 422);
+        }
 
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Lead deleted successfully',
-        ], 200);
+        try {
+            DB::beginTransaction();
+
+            LeadHistory::create([
+                'lead_id' => $lead->id,
+                'user_id' => Auth::id(),
+                'action' => 'soft_deleted',
+                'status' => $lead->status,
+                'comments' => 'Lead soft deleted',
+            ]);
+
+            $lead->delete();
+
+            DB::commit();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Lead deleted successfully',
+            ], 200);
+
+        } catch (Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to delete lead: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Restore a soft-deleted lead with history
+     *
+     * @param int $leadId
+     * @return JsonResponse
+     */
+    public function restore(int $leadId): JsonResponse
+    {
+        $user = Auth::user();
+        if ($user->designation !== 'admin') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized to restore leads',
+            ], 403);
+        }
+
+        $lead = Lead::withTrashed()->where('id', $leadId)->firstOrFail();
+        
+        if (!$lead->trashed()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Lead is not deleted',
+            ], 422);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            LeadHistory::create([
+                'lead_id' => $lead->id,
+                'user_id' => Auth::id(),
+                'action' => 'restored',
+                'status' => $lead->status,
+                'comments' => 'Lead restored from soft deletion',
+            ]);
+
+            $lead->restore();
+
+            $lead->load([
+                'employee',
+                'teamLead',
+                'histories' => function ($query) {
+                    $query->orderBy('created_at', 'desc')->with('user');
+                }
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Lead restored successfully',
+                'data' => $lead,
+            ], 200);
+
+        } catch (Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to restore lead: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Permanently delete a lead with history
+     *
+     * @param int $leadId
+     * @return JsonResponse
+     */
+    public function forceDelete(int $leadId): JsonResponse
+    {
+        $user = Auth::user();
+        if ($user->designation !== 'admin') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized to permanently delete leads',
+            ], 403);
+        }
+
+        $lead = Lead::withTrashed()->where('id', $leadId)->firstOrFail();
+        
+        try {
+            DB::beginTransaction();
+
+            LeadHistory::create([
+                'lead_id' => $lead->id,
+                'user_id' => Auth::id(),
+                'action' => 'force_deleted',
+                'status' => $lead->status,
+                'comments' => 'Lead permanently deleted',
+            ]);
+
+            if ($lead->voice_recording) {
+                Storage::disk('public')->delete(str_replace('/storage/', '', trim($lead->voice_recording)));
+            }
+
+            $lead->forceDelete();
+
+            DB::commit();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Lead permanently deleted successfully',
+            ], 200);
+        } catch (Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to permanently delete lead: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }
