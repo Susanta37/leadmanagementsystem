@@ -98,17 +98,17 @@ class AttendanceController extends Controller
         }
 
         // Check if already checked in
-        $alreadyCheckedIn = Attendance::where('employee_id', $user->id)
-            ->whereDate('date', $today)
-            ->exists();
+        // $alreadyCheckedIn = Attendance::where('employee_id', $user->id)
+        //     ->whereDate('date', $today)
+        //     ->exists();
 
-        if ($alreadyCheckedIn) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'You have already checked in today.',
-                'button_action' => 'checkout'
-            ], 403);
-        }
+        // if ($alreadyCheckedIn) {
+        //     return response()->json([
+        //         'status' => 'error',
+        //         'message' => 'You have already checked in today.',
+        //         'button_action' => 'checkout'
+        //     ], 403);
+        // }
 
         // Check for approved leave
         $leaveToday = Leave::where('user_id', $user->id)

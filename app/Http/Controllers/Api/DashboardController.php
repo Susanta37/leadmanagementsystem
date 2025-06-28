@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
@@ -18,16 +19,13 @@ class DashboardController extends Controller
         // Get filter parameters
         $leadType = $request->query('lead_type', 'all');
         $status = $request->query('status', 'all');
-        $dateFilter = $request->query('date_filter', 'this_month');
-        $startDate = $request->query('start_date');
-        $endDate = $request->query('end_date');
-        $expectedMonth = $request->query('expected_month', 'all');
+        $expectedMonth = $request->query('expected_month', Carbon::now()->format('F')); // e.g., 'June'
+        $currentYear = Carbon::now()->year; // e.g., 2025
 
         // Validate filter parameters
         $validLeadTypes = ['all', 'personal_loan', 'business_loan', 'home_loan', 'creditcard_loan'];
-        $validStatuses = ['all', 'personal_lead', 'authorized', 'approved', 'completed', 'rejected'];
-        $validDateFilters = ['this_month', 'this_week', 'this_year', 'date_range'];
-        $validExpectedMonths = ['all', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        $validStatuses = ['all', 'personal_lead', 'authorized', 'login', 'approved', 'disbursed', 'rejected', 'future_lead'];
+        $validExpectedMonths = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
         if (!in_array($leadType, $validLeadTypes)) {
             return response()->json([
@@ -43,43 +41,11 @@ class DashboardController extends Controller
             ], 400);
         }
 
-        if (!in_array($dateFilter, $validDateFilters)) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Invalid date filter',
-            ], 400);
-        }
-
         if (!in_array($expectedMonth, $validExpectedMonths)) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Invalid expected month',
             ], 400);
-        }
-
-        if ($dateFilter === 'date_range') {
-            if (!$startDate || !$endDate) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Start date and end date are required for date range filter',
-                ], 400);
-            }
-
-            try {
-                $startDate = Carbon::parse($startDate);
-                $endDate = Carbon::parse($endDate);
-                if ($startDate > $endDate) {
-                    return response()->json([
-                        'status' => 'error',
-                        'message' => 'Start date must be before end date',
-                    ], 400);
-                }
-            } catch (\Exception $e) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Invalid date format',
-                ], 400);
-            }
         }
 
         // Base query based on user role
@@ -93,23 +59,28 @@ class DashboardController extends Controller
             });
         }
 
-        // Apply date filter
-        $now = Carbon::now();
-        if ($dateFilter === 'this_month') {
-            $query->whereYear('created_at', $now->year)
-                  ->whereMonth('created_at', $now->month);
-        } elseif ($dateFilter === 'this_week') {
-            $query->whereBetween('created_at', [$now->startOfWeek(), $now->endOfWeek()]);
-        } elseif ($dateFilter === 'this_year') {
-            $query->whereYear('created_at', $now->year);
-        } elseif ($dateFilter === 'date_range') {
-            $query->whereBetween('created_at', [$startDate->startOfDay(), $endDate->endOfDay()]);
+        // Total leads (all time, excluding creditcard_loan)
+        $totalLeadsQuery = Lead::query();
+        if ($user->designation !== 'team_lead') {
+            $totalLeadsQuery->where('employee_id', $user->id);
+        } else {
+            $totalLeadsQuery->where(function ($q) use ($user) {
+                $q->where('employee_id', $user->id)
+                  ->orWhere('team_lead_id', $user->id);
+            });
         }
+        $totalLeadsQuery->whereNotIn('lead_type', ['creditcard_loan']);
+
+        $totalLeads = [
+            'count' => $totalLeadsQuery->count(),
+            'total_amount' => $totalLeadsQuery->sum('lead_amount') ?? 0,
+        ];
+
+        // Apply current year filter to main query
+        $query->whereYear('created_at', $currentYear);
 
         // Apply expected month filter
-        if ($expectedMonth !== 'all') {
-            $query->where('expected_month', $expectedMonth);
-        }
+        $query->where('expected_month', $expectedMonth);
 
         // Apply lead type filter
         if ($leadType !== 'all') {
@@ -121,15 +92,10 @@ class DashboardController extends Controller
             $query->where('status', $status);
         }
 
-        // Get aggregates
-        $totalLeads = [
-            'count' => $query->count(),
-            'total_amount' => $query->sum('lead_amount') ?? 0,
-        ];
-
+        // Get status aggregates
         $personalLeads = [
-            'count' => $query->clone()->where('status', 'personal_lead')->count(),
-            'total_amount' => $query->clone()->where('status', 'personal_lead')->sum('lead_amount') ?? 0,
+            'count' => $query->clone()->where('status', 'personal_lead')->whereNotIn('lead_type', ['creditcard_loan'])->count(),
+            'total_amount' => $query->clone()->where('status', 'personal_lead')->whereNotIn('lead_type', ['creditcard_loan'])->sum('lead_amount') ?? 0,
         ];
 
         $authorizedLeads = [
@@ -137,14 +103,19 @@ class DashboardController extends Controller
             'total_amount' => $query->clone()->where('status', 'authorized')->sum('lead_amount') ?? 0,
         ];
 
+        $loginLeads = [
+            'count' => $query->clone()->where('status', 'login')->count(),
+            'total_amount' => $query->clone()->where('status', 'login')->sum('lead_amount') ?? 0,
+        ];
+
         $approvedLeads = [
             'count' => $query->clone()->where('status', 'approved')->count(),
             'total_amount' => $query->clone()->where('status', 'approved')->sum('lead_amount') ?? 0,
         ];
 
-        $completedLeads = [
-            'count' => $query->clone()->where('status', 'completed')->count(),
-            'total_amount' => $query->clone()->where('status', 'completed')->sum('lead_amount') ?? 0,
+        $disbursedLeads = [
+            'count' => $query->clone()->where('status', 'disbursed')->count(),
+            'total_amount' => $query->clone()->where('status', 'disbursed')->sum('lead_amount') ?? 0,
         ];
 
         $rejectedLeads = [
@@ -152,7 +123,26 @@ class DashboardController extends Controller
             'total_amount' => $query->clone()->where('status', 'rejected')->sum('lead_amount') ?? 0,
         ];
 
-        // Get lead type breakdowns
+        // Future leads with expected month filter
+        $futureLeadsQuery = Lead::query();
+        if ($user->designation !== 'team_lead') {
+            $futureLeadsQuery->where('employee_id', $user->id);
+        } else {
+            $futureLeadsQuery->where(function ($q) use ($user) {
+                $q->where('employee_id', $user->id)
+                  ->orWhere('team_lead_id', $user->id);
+            });
+        }
+        $futureLeadsQuery->where('status', 'future_lead')
+                         ->whereYear('created_at', $currentYear)
+                         ->where('expected_month', $expectedMonth);
+
+        $futureLeads = [
+            'count' => $futureLeadsQuery->count(),
+            'total_amount' => $futureLeadsQuery->sum('lead_amount') ?? 0,
+        ];
+
+        // Lead type breakdowns
         $leadTypes = ['personal_loan', 'business_loan', 'home_loan', 'creditcard_loan'];
         $leadTypeBreakdown = [];
 
@@ -166,22 +156,9 @@ class DashboardController extends Controller
             });
         }
 
-        // Apply date filter to lead type breakdown
-        if ($dateFilter === 'this_month') {
-            $baseQuery->whereYear('created_at', $now->year)
-                      ->whereMonth('created_at', $now->month);
-        } elseif ($dateFilter === 'this_week') {
-            $baseQuery->whereBetween('created_at', [$now->startOfWeek(), $now->endOfWeek()]);
-        } elseif ($dateFilter === 'this_year') {
-            $baseQuery->whereYear('created_at', $now->year);
-        } elseif ($dateFilter === 'date_range') {
-            $baseQuery->whereBetween('created_at', [$startDate->startOfDay(), $endDate->endOfDay()]);
-        }
-
-        // Apply expected month filter to lead type breakdown
-        if ($expectedMonth !== 'all') {
-            $baseQuery->where('expected_month', $expectedMonth);
-        }
+        // Apply current year and expected month filters to lead type breakdown
+        $baseQuery->whereYear('created_at', $currentYear)
+                  ->where('expected_month', $expectedMonth);
 
         foreach ($leadTypes as $type) {
             $typeQuery = $baseQuery->clone()->where('lead_type', $type);
@@ -189,29 +166,55 @@ class DashboardController extends Controller
                 $typeQuery->where('status', $status);
             }
 
-            $leads = $typeQuery->with(['employee'])->get()->map(function ($lead) {
-                return [
-                    'id' => $lead->id,
-                    'name' => $lead->name,
-                    'lead_amount' => $lead->lead_amount,
-                    'status' => $lead->status,
-                    'expected_month' => $lead->expected_month,
-                    'created_at' => $lead->created_at,
-                    'employee' => [
-                        'name' => $lead->employee->name,
-                        'profile_photo_url' => $lead->employee->profile_photo_url,
-                        'pan_card_url' => $lead->employee->pan_card_url,
-                        'aadhar_card_url' => $lead->employee->aadhar_card_url,
-                        'signature_url' => $lead->employee->signature_url,
+            if ($type === 'creditcard_loan') {
+                // Credit card loan breakdown: applied (personal_lead), approved, rejected
+                $leadTypeBreakdown[$type] = [
+                    'applied' => [
+                        'count' => $typeQuery->clone()->where('status', 'personal_lead')->count(),
+                        'total_amount' => 0, // No lead_amount for creditcard_loan
+                    ],
+                    'approved' => [
+                        'count' => $typeQuery->clone()->where('status', 'approved')->count(),
+                        'total_amount' => 0, // No lead_amount for creditcard_loan
+                    ],
+                    'rejected' => [
+                        'count' => $typeQuery->clone()->where('status', 'rejected')->count(),
+                        'total_amount' => 0, // No lead_amount for creditcard_loan
                     ],
                 ];
-            });
+            } else {
+                // Other lead types: include lead details
+                $leads = $typeQuery->with(['employee'])->get()->map(function ($lead) {
+                    return [
+                        'id' => $lead->id,
+                        'name' => $lead->name,
+                        'lead_amount' => $lead->lead_amount ? number_format($lead->lead_amount, 2, '.', '') : null,
+                        'status' => $lead->status,
+                        'expected_month' => $lead->expected_month,
+                        'created_at' => $lead->created_at->toISOString(),
+                        'location' => implode(', ', array_filter([
+                            $lead->city,
+                            $lead->district,
+                            $lead->state,
+                        ], function ($value) {
+                            return !is_null($value) && $value !== '';
+                        })),
+                        'employee' => [
+                            'name' => $lead->employee ? $lead->employee->name : null,
+                            'profile_photo_url' => $lead->employee ? $lead->employee->profile_photo_url : null,
+                            'pan_card_url' => $lead->employee ? $lead->employee->pan_card_url : null,
+                            'aadhar_card_url' => $lead->employee ? $lead->employee->aadhar_card_url : null,
+                            'signature_url' => $lead->employee ? $lead->employee->signature_url : null,
+                        ],
+                    ];
+                });
 
-            $leadTypeBreakdown[$type] = [
-                'count' => $typeQuery->count(),
-                'total_amount' => $typeQuery->sum('lead_amount') ?? 0,
-                'leads' => $leads,
-            ];
+                $leadTypeBreakdown[$type] = [
+                    'count' => $typeQuery->count(),
+                    'total_amount' => $typeQuery->sum('lead_amount') ?? 0,
+                    'leads' => $leads,
+                ];
+            }
         }
 
         return response()->json([
@@ -226,17 +229,17 @@ class DashboardController extends Controller
                     'total_leads' => $totalLeads,
                     'personal_leads' => $personalLeads,
                     'authorized_leads' => $authorizedLeads,
+                    'login_leads' => $loginLeads,
                     'approved_leads' => $approvedLeads,
-                    'completed_leads' => $completedLeads,
+                    'disbursed_leads' => $disbursedLeads,
                     'rejected_leads' => $rejectedLeads,
                 ],
                 'lead_type_breakdown' => $leadTypeBreakdown,
+                'future_leads' => $futureLeads,
                 'filters_applied' => [
                     'lead_type' => $leadType,
                     'status' => $status,
-                    'date_filter' => $dateFilter,
-                    'start_date' => $startDate ?? null,
-                    'end_date' => $endDate ?? null,
+                    'year' => $currentYear,
                     'expected_month' => $expectedMonth,
                 ],
             ],

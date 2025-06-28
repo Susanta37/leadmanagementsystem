@@ -23,7 +23,7 @@ class LeadController extends Controller
      * @param Request $request
      * @return JsonResponse
      */
-     public function index(Request $request): JsonResponse
+    public function index(Request $request): JsonResponse
     {
         $user = Auth::user();
         
@@ -114,7 +114,10 @@ class LeadController extends Controller
                 $q->where('name', 'like', "%{$search}%")
                   ->orWhere('phone', 'like', "%{$search}%")
                   ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('bank_name', 'like', "%{$search}%");
+                  ->orWhere('bank_name', 'like', "%{$search}%")
+                  ->orWhere('state', 'like', "%{$search}%")
+                  ->orWhere('district', 'like', "%{$search}%")
+                  ->orWhere('city', 'like', "%{$search}%");
             });
         }
 
@@ -147,6 +150,18 @@ class LeadController extends Controller
         $leads = $query->with(['employee', 'teamLead', 'histories' => function ($query) {
             $query->orderBy('created_at', 'desc');
         }])->orderBy('created_at', 'desc')->get();
+
+        // Transform leads to include combined location
+        $leads = $leads->map(function ($lead) {
+            $lead->location = implode(', ', array_filter([
+                $lead->city,
+                $lead->district,
+                $lead->state,
+            ], function ($value) {
+                return !is_null($value) && $value !== '';
+            }));
+            return $lead;
+        });
 
         // Aggregate data
         $aggregates = [
@@ -184,6 +199,7 @@ class LeadController extends Controller
             ],
         ], 200);
     }
+
     /**
      * Create a new lead with history tracking
      *
@@ -216,7 +232,10 @@ class LeadController extends Controller
             $specificRules = [
                 'name' => 'required|string|max:255',
                 'phone' => 'required|string|regex:/^\+?[1-9]\d{1,14}$/',
-                'location' => 'required|string|max:255',
+                'state' => 'nullable|string|max:255',
+                'district' => 'nullable|string|max:255',
+                'city' => 'nullable|string|max:255',
+                'location' => 'nullable|string|max:255',
                 'lead_amount' => 'required|numeric|min:0',
                 'expected_month' => 'required|string|in:January,February,March,April,May,June,July,August,September,October,November,December',
                 'email' => 'nullable|string|email|max:255',
@@ -231,7 +250,9 @@ class LeadController extends Controller
                 'business_name' => 'required|string|max:255',
                 'phone' => 'required|string|regex:/^\+?[1-9]\d{1,14}$/',
                 'email' => 'nullable|string|email|max:255',
-                'location' => 'required|string|max:255',
+                'state' => 'required|string|max:255',
+                'district' => 'required|string|max:255',
+                'city' => 'required|string|max:255',
                 'lead_amount' => 'required|numeric|min:0',
                 'turnover_amount' => 'required|numeric|min:5000000',
                 'vintage_year' => 'required|integer|min:2',
@@ -335,7 +356,9 @@ class LeadController extends Controller
                         'phone' => $request->phone,
                         'email' => $request->email,
                         'dob' => $request->dob,
-                        'location' => $request->location,
+                        'state' => $request->state,
+                        'district' => $request->district,
+                        'city' => $request->city,
                         'company_name' => $request->company_name,
                         'lead_amount' => $request->lead_amount,
                         'salary' => $request->salary,
@@ -348,7 +371,9 @@ class LeadController extends Controller
                         'name' => $request->business_name,
                         'phone' => $request->phone,
                         'email' => $request->email,
-                        'location' => $request->location,
+                        'state' => $request->state,
+                        'district' => $request->district,
+                        'city' => $request->city,
                         'lead_amount' => $request->lead_amount,
                         'turnover_amount' => $request->turnover_amount,
                         'vintage_year' => $request->vintage_year,
@@ -493,7 +518,9 @@ class LeadController extends Controller
                 'phone' => $lead->phone,
                 'email' => $lead->email,
                 'dob' => $lead->dob,
-                'location' => $lead->location,
+                'state' => $lead->state,
+                'district' => $lead->district,
+                'city' => $lead->city,
                 'company_name' => $lead->company_name,
                 'lead_amount' => number_format($lead->lead_amount, 2, '.', ''),
                 'salary' => $lead->salary ? number_format($lead->salary, 2, '.', '') : null,
@@ -506,7 +533,9 @@ class LeadController extends Controller
                 'business_name' => $lead->name,
                 'phone' => $lead->phone,
                 'email' => $lead->email,
-                'location' => $lead->location,
+                'state' => $lead->state,
+                'district' => $lead->district,
+                'city' => $lead->city,
                 'lead_amount' => number_format($lead->lead_amount, 2, '.', ''),
                 'turnover_amount' => number_format($lead->turnover_amount, 2, '.', ''),
                 'vintage_year' => $lead->vintage_year,
@@ -602,7 +631,9 @@ class LeadController extends Controller
                 'phone' => 'sometimes|string|regex:/^\+?[1-9]\d{1,14}$/',
                 'email' => 'sometimes|nullable|string|email|max:255',
                 'dob' => 'nullable|date|before:today',
-                'location' => 'sometimes|string|max:255',
+                'state' => 'sometimes|string|max:255',
+                'district' => 'sometimes|string|max:255',
+                'city' => 'sometimes|string|max:255',
                 'company_name' => 'sometimes|nullable|string|max:255',
                 'lead_amount' => 'sometimes|amount',
                 'salary' => 'sometimes|nullable|numeric|min:0',
@@ -615,7 +646,9 @@ class LeadController extends Controller
                 'business_name' => 'sometimes|string|max:255',
                 'phone' => 'sometimes|string|regex:/^\+?[1-9]\d{1,14}$/',
                 'email' => 'sometimes|nullable|string|email|max:255',
-                'location' => 'sometimes|string|max:255',
+                'state' => 'sometimes|string|max:255',
+                'district' => 'sometimes|string|max:255',
+                'city' => 'sometimes|string|max:255',
                 'lead_amount' => 'sometimes|amount',
                 'turnover_amount' => 'sometimes|nullable|numeric|min:5000000',
                 'vintage_year' => 'sometimes|nullable|integer|min:2',

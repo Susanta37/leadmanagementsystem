@@ -27,6 +27,9 @@ return new class extends Migration
             $table->string('bank_name')->nullable()->after('vintage_year');
         }
         $table->softDeletes();
+         $table->string('state', 255)->nullable()->after('dob');
+            $table->string('district', 255)->nullable()->after('state');
+            $table->string('city', 255)->nullable()->after('district');
       
         });
     }
@@ -37,7 +40,7 @@ return new class extends Migration
     public function down(): void
     {
        Schema::table('leads', function (Blueprint $table) {
-            $table->dropColumn(['lead_type', 'voice_recording', 'is_personal_lead']);
+            $table->dropColumn(['lead_type', 'voice_recording', 'is_personal_lead','state', 'district', 'city']);
         });
     }
 };
