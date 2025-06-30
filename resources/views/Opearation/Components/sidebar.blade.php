@@ -20,8 +20,14 @@
                         <span>Dashboard</span>
                     </a>
                 </li>
-                
                 <li class="nav-item">
+                    <a href="" class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
+                        <i class="fas fa-lists"></i>
+                        <span>Manager Leads</span>
+                    </a>
+                </li>
+{{--                 
+              <li class="nav-item">
                     <a href="#" class="nav-link has-submenu" data-submenu="leads">
                         <i class="fas fa-users"></i>
                         <span>Leads</span>
@@ -33,8 +39,8 @@
                         <li><a href="">Hot Leads</a></li>
                         <li><a href="">Cold Leads</a></li>
                     </ul>
-                </li>
-
+                </li> --}}
+  {{-- 
                 <li class="nav-item">
                     <a href="#" class="nav-link has-submenu" data-submenu="campaigns">
                         <i class="fas fa-bullhorn"></i>
@@ -88,7 +94,7 @@
                         <i class="fas fa-cog"></i>
                         <span>Settings</span>
                     </a>
-                </li>
+                </li> --}}
             </ul>
         </nav>
     </div>

@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\TaskController;
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\LeaveController;
+use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\SalarySlipController;
 use App\Http\Controllers\Api\TeamController;
 
@@ -53,7 +54,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/attendance/status', [AttendanceController::class, 'checkTodayStatus']);
     Route::post('/attendance/location', [AttendanceController::class, 'updateLocation']);
     Route::get('/geofence-settings', [AttendanceController::class, 'getGeofenceSettings']);
-    
+
     //Team view api
     Route::get('/teams', [TeamController::class, 'index']);
 
@@ -64,4 +65,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/salary-slips', [SalarySlipController::class, 'index']);
     Route::get('/salary-slips/{id}/download', [SalarySlipController::class, 'downloadPdf']);
 
+    Route::get('/states', [LocationController::class, 'getStates']);
+    Route::get('/districts/{state_id}', [LocationController::class, 'getDistricts']);
+    Route::get('/cities/{district_id}', [LocationController::class, 'getCities']);
 });

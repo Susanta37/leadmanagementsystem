@@ -65,11 +65,7 @@ class TLDashboardController extends Controller
     //     return redirect()->route('team_lead.employees.index')->with('success', 'Employee created successfully.');
     // }
 
-    public function indexLeads()
-    {
-        $leads = Auth::user()->assignedLeads()->whereIn('status', ['pending'])->paginate(10);
-        return view('TeamLead.leads.index', compact('leads'));
-    }
+    
 
     public function indexTeams()
     {
