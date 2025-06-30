@@ -24,6 +24,7 @@ class Attendance extends Model
         'last_location_update',
         'is_within_geofence',
         'reason',
+        'sessions'
     ];
 
     protected $casts = [
@@ -32,6 +33,7 @@ class Attendance extends Model
         'check_out' => 'datetime',
         'last_location_update' => 'datetime',
         'is_within_geofence' => 'boolean',
+        'sessions' => 'array'
     ];
 
     // Employee associated with this attendance record

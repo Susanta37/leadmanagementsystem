@@ -6,11 +6,11 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Attendance;
 use App\Models\Leave;
-use App\Models\GeofenceSettings;
-use App\Helpers\GeofenceHelper;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\FacadesLog;
 use Illuminate\Support\Facades\Storage;
 
 class AttendanceController extends Controller
@@ -49,7 +49,20 @@ class AttendanceController extends Controller
         $today = $records->where('date', today()->toDateString())->first();
         $checkIn = optional($today)->check_in;
         $checkOut = optional($today)->check_out;
-        $workingHours = $checkIn && $checkOut ? Carbon::parse($checkIn)->diffInMinutes($checkOut) / 60 : null;
+
+        // Calculate total working hours for today
+        $workingHours = null;
+        if ($checkIn && $today && $today->sessions) {
+            $totalMinutes = 0;
+            $sessions = is_string($today->sessions) ? json_decode($today->sessions, true) : $today->sessions;
+            $sessions = is_array($sessions) ? $sessions : [];
+            foreach ($sessions as $session) {
+                if (!empty($session['check_in']) && !empty($session['check_out'])) {
+                    $totalMinutes += Carbon::parse($session['check_in'])->diffInMinutes($session['check_out']);
+                }
+            }
+            $workingHours = $totalMinutes / 60;
+        }
 
         return response()->json([
             'status' => 'success',
@@ -62,6 +75,14 @@ class AttendanceController extends Controller
                 'working_hours_today' => $workingHours ? round($workingHours, 2) : null
             ],
             'records' => $records->map(function ($record) {
+                $sessions = is_string($record->sessions) ? json_decode($record->sessions, true) : $record->sessions;
+                $sessions = is_array($sessions) ? $sessions : [];
+                $totalWorkedHours = 0;
+                foreach ($sessions as $session) {
+                    if (!empty($session['check_in']) && !empty($session['check_out'])) {
+                        $totalWorkedHours += Carbon::parse($session['check_in'])->diffInMinutes($session['check_out']) / 60;
+                    }
+                }
                 return [
                     'employee_name' => $record->employee->name,
                     'date' => $record->date,
@@ -75,9 +96,8 @@ class AttendanceController extends Controller
                     'checkin_image' => $record->checkin_image,
                     'checkout_image' => $record->checkout_image,
                     'reason' => $record->reason,
-                    'worked_hours' => $record->check_in && $record->check_out
-                        ? round(Carbon::parse($record->check_in)->diffInMinutes($record->check_out) / 60, 2)
-                        : null
+                    'worked_hours' => round($totalWorkedHours, 2),
+                    'sessions' => $sessions
                 ];
             }),
         ]);
@@ -88,6 +108,11 @@ class AttendanceController extends Controller
         $user = Auth::user();
         $today = Carbon::today();
 
+        Log::info('Starting attendance store', [
+            'user_id' => $user->id,
+            'request_data' => $request->all()
+        ]);
+
         // Check if today is Sunday
         if ($today->isSunday()) {
             return response()->json([
@@ -97,19 +122,6 @@ class AttendanceController extends Controller
             ], 403);
         }
 
-        // Check if already checked in
-        // $alreadyCheckedIn = Attendance::where('employee_id', $user->id)
-        //     ->whereDate('date', $today)
-        //     ->exists();
-
-        // if ($alreadyCheckedIn) {
-        //     return response()->json([
-        //         'status' => 'error',
-        //         'message' => 'You have already checked in today.',
-        //         'button_action' => 'checkout'
-        //     ], 403);
-        // }
-
         // Check for approved leave
         $leaveToday = Leave::where('user_id', $user->id)
             ->where('status', 'approved')
@@ -118,6 +130,7 @@ class AttendanceController extends Controller
             ->first();
 
         if ($leaveToday) {
+            Log::info('User is on approved leave', ['leave_id' => $leaveToday->id]);
             return response()->json([
                 'status' => 'error',
                 'message' => 'Attendance not allowed. You are on approved leave today.',
@@ -134,6 +147,7 @@ class AttendanceController extends Controller
         ]);
 
         if ($validator->fails()) {
+            Log::warning('Validation failed for attendance store', ['errors' => $validator->errors()]);
             return response()->json([
                 'status' => 'error',
                 'errors' => $validator->errors(),
@@ -141,47 +155,104 @@ class AttendanceController extends Controller
             ], 422);
         }
 
-        // Get geofence settings
-        $geofence = GeofenceSettings::first();
-        if (!$geofence) {
+        // Prepare session data
+        $sessionData = [
+            'check_in' => now()->toDateTimeString(),
+            'check_in_location' => $request->check_in_location,
+            'check_in_coordinates' => $request->check_in_coordinates,
+            'check_out' => null,
+            'check_out_location' => null,
+            'check_out_coordinates' => null
+        ];
+        $encodedSessions = json_encode([$sessionData]);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            Log::error('JSON encoding failed for session data', [
+                'error' => json_last_error_msg(),
+                'data' => $sessionData
+            ]);
             return response()->json([
                 'status' => 'error',
-                'message' => 'Geofence settings not configured.',
-                'button_action' => 'none'
+                'message' => 'Failed to process check-in due to data encoding error.',
+                'button_action' => 'checkin'
             ], 500);
         }
 
-      
-        list($userLat, $userLon) = explode(',', $request->check_in_coordinates);
+        Log::info('Prepared session data', ['session_data' => $sessionData, 'encoded_sessions' => $encodedSessions]);
 
-        // Check if user is within geofence
-        if (!GeofenceHelper::isWithinGeofence($userLat, $userLon, $geofence->latitude, $geofence->longitude, $geofence->radius)) {
+        // Find or create today's attendance record
+        $attendance = Attendance::where('employee_id', $user->id)
+            ->whereDate('date', $today)
+            ->first();
+
+        if ($attendance && $attendance->check_in && !$attendance->check_out) {
+            Log::info('User already checked in', ['attendance_id' => $attendance->id]);
             return response()->json([
                 'status' => 'error',
-                'message' => 'You are not within the office premises.',
-                'button_action' => 'checkin'
+                'message' => 'You are already checked in. Please check out before checking in again.',
+                'button_action' => 'checkout',
+                'attendance_id' => $attendance->id
             ], 403);
         }
 
-        // Handle image upload
-        $imagePath = null;
-        if ($request->hasFile('checkin_image')) {
-            $storedPath = $request->file('checkin_image')->store('attendance/checkin', 'public');
-            $imagePath = '/storage/' . $storedPath;
+        if (!$attendance) {
+            // First check-in of the day
+            $attributes = [
+                'employee_id' => $user->id,
+                'date' => $today,
+                'check_in' => now(),
+                'check_in_location' => $request->check_in_location,
+                'check_in_coordinates' => $request->check_in_coordinates,
+                'checkin_image' => $request->hasFile('checkin_image') 
+                    ? '/storage/' . $request->file('checkin_image')->store('attendance/checkin', 'public')
+                    : null,
+                'notes' => $request->notes,
+                'reason' => 'Initial check-in',
+                'sessions' => $encodedSessions
+            ];
+            Log::info('Creating new attendance record', $attributes);
+            $attendance = Attendance::create($attributes);
+        } else {
+            // Re-check-in (e.g., after lunch break)
+            $sessions = is_string($attendance->sessions) ? json_decode($attendance->sessions, true) : $attendance->sessions;
+            if (!is_array($sessions)) {
+                Log::warning('Invalid sessions data, resetting to empty array', [
+                    'attendance_id' => $attendance->id,
+                    'sessions' => $attendance->sessions
+                ]);
+                $sessions = [];
+            }
+            $sessions[] = $sessionData;
+            $encodedSessions = json_encode($sessions);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                Log::error('JSON encoding failed for updated sessions', [
+                    'error' => json_last_error_msg(),
+                    'data' => $sessions
+                ]);
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Failed to process re-check-in due to data encoding error.',
+                    'button_action' => 'checkin'
+                ], 500);
+            }
+            $attributes = [
+                'check_in' => now(),
+                'check_out' => null, // Reset check_out for re-check-in
+                'check_in_location' => $request->check_in_location,
+                'check_in_coordinates' => $request->check_in_coordinates,
+                'checkin_image' => $request->hasFile('checkin_image') 
+                    ? '/storage/' . $request->file('checkin_image')->store('attendance/checkin', 'public')
+                    : $attendance->checkin_image,
+                'notes' => $request->notes ?? $attendance->notes,
+                'reason' => 'Re-check-in',
+                'sessions' => $encodedSessions
+            ];
+            Log::info('Updating existing attendance record', $attributes);
+            $attendance->update($attributes);
         }
 
-        // Create attendance record
-        $attendance = Attendance::create([
-            'employee_id' => $user->id,
-            'date' => $today,
-            'check_in' => now(),
-            'check_in_location' => $request->check_in_location,
-            'check_in_coordinates' => $request->check_in_coordinates,
-            'checkin_image' => $imagePath,
-            'notes' => $request->notes,
-            'is_within_geofence' => true,
-            'last_location_update' => now(),
-            'reason' => 'Manual check-in'
+        Log::info('Attendance check-in recorded', [
+            'attendance_id' => $attendance->id,
+            'sessions' => $attendance->sessions
         ]);
 
         return response()->json([
@@ -189,6 +260,7 @@ class AttendanceController extends Controller
             'message' => 'Check-in recorded successfully.',
             'button_action' => 'checkout',
             'data' => $attendance,
+            'attendance_id' => $attendance->id
         ]);
     }
 
@@ -221,19 +293,29 @@ class AttendanceController extends Controller
             ], 422);
         }
 
-        // Get geofence settings
-        $geofence = GeofenceSettings::first();
-        if (!$geofence) {
+        // Update the latest session for check-out
+        $sessions = is_string($attendance->sessions) ? json_decode($attendance->sessions, true) : $attendance->sessions;
+        $sessions = is_array($sessions) ? $sessions : [];
+        if (!empty($sessions)) {
+            $latestSession = &$sessions[count($sessions) - 1];
+            if (!empty($latestSession['check_out'])) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Already checked out for the current session.',
+                    'button_action' => 'checkin'
+                ], 403);
+            }
+            $latestSession['check_out'] = now()->toDateTimeString();
+            $latestSession['check_out_location'] = $request->check_out_location;
+            $latestSession['check_out_coordinates'] = $request->check_out_coordinates;
+        } else {
+            Log::warning('No sessions found for check-out', ['attendance_id' => $attendance->id]);
             return response()->json([
                 'status' => 'error',
-                'message' => 'Geofence settings not configured.',
-                'button_action' => 'none'
-            ], 500);
+                'message' => 'No active session found to check out.',
+                'button_action' => 'checkin'
+            ], 403);
         }
-
-        // Parse coordinates
-        list($userLat, $userLon) = explode(',', $request->check_out_coordinates);
-        $isWithinGeofence = GeofenceHelper::isWithinGeofence($userLat, $userLon, $geofence->latitude, $geofence->longitude, $geofence->radius);
 
         // Handle image upload
         $checkoutImagePath = $attendance->checkout_image;
@@ -246,110 +328,33 @@ class AttendanceController extends Controller
             $checkoutImagePath = '/storage/' . $storedPath;
         }
 
+        // Calculate total worked hours
+        $totalWorkedHours = 0;
+        foreach ($sessions as $session) {
+            if (!empty($session['check_in']) && !empty($session['check_out'])) {
+                $totalWorkedHours += Carbon::parse($session['check_in'])->diffInMinutes($session['check_out']) / 60;
+            }
+        }
+
         // Update attendance record
-        $attendance->update([
+        $attributes = [
             'check_out' => now(),
             'check_out_location' => $request->check_out_location,
             'check_out_coordinates' => $request->check_out_coordinates,
             'checkout_image' => $checkoutImagePath,
             'notes' => $request->notes ?? $attendance->notes,
-            'is_within_geofence' => $isWithinGeofence,
-            'last_location_update' => now(),
-            'reason' => 'Manual check-out'
-        ]);
+            'reason' => 'Check-out',
+            'sessions' => json_encode($sessions)
+        ];
+        Log::info('Updating attendance record for check-out', $attributes);
+        $attendance->update($attributes);
 
         return response()->json([
             'status' => 'success',
             'message' => 'Check-out recorded successfully.',
             'button_action' => 'checkin',
             'data' => $attendance,
-        ]);
-    }
-
-    public function updateLocation(Request $request)
-    {
-        $user = Auth::user();
-        $today = Carbon::today()->toDateString();
-
-        // Validate request
-        $validator = Validator::make($request->all(), [
-            'current_coordinates' => 'required|string|regex:/^[-]?[0-9]{1,3}\.[0-9]{6},[-]?[0-9]{1,3}\.[0-9]{6}$/',
-            'current_location' => 'nullable|string|max:255',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => 'error',
-                'errors' => $validator->errors(),
-                'button_action' => 'none'
-            ], 422);
-        }
-
-        // Find active attendance record
-        $attendance = Attendance::where('employee_id', $user->id)
-            ->whereDate('date', $today)
-            ->whereNotNull('check_in')
-            ->whereNull('check_out')
-            ->first();
-
-        if (!$attendance) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'No active check-in found for today.',
-                'button_action' => 'checkin'
-            ], 404);
-        }
-
-        // Get geofence settings
-        $geofence = GeofenceSettings::first();
-        if (!$geofence) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Geofence settings not configured.',
-                'button_action' => 'none'
-            ], 500);
-        }
-
-        // Parse coordinates
-        list($userLat, $userLon) = explode(',', $request->current_coordinates);
-        $isWithinGeofence = GeofenceHelper::isWithinGeofence($userLat, $userLon, $geofence->latitude, $geofence->longitude, $geofence->radius);
-
-        if (!$isWithinGeofence) {
-            // Auto-checkout if user is outside geofence
-            $attendance->update([
-                'check_out' => now(),
-                'check_out_location' => $request->current_location,
-                'check_out_coordinates' => $request->current_coordinates,
-                'is_within_geofence' => false,
-                'last_location_update' => now(),
-                'notes' => ($attendance->notes ?? '') . "\nAuto-checked out due to leaving office premises.",
-                'reason' => 'Auto-checked out due to leaving geofence'
-            ]);
-
-            return response()->json([
-                'status' => 'completed',
-                'message' => 'You have been checked out because you are out of the office area. Please check in after re-entering.',
-                'button_action' => 'checkin',
-                'check_in_time' => $attendance->check_in,
-                'check_out_time' => $attendance->check_out,
-                'worked_hours' => round(Carbon::parse($attendance->check_in)->diffInMinutes($attendance->check_out) / 60, 2),
-            ]);
-        }
-
-        // Update location if still within geofence
-        $attendance->update([
-            'last_location_update' => now(),
-            'is_within_geofence' => true,
-            'check_in_location' => $request->current_location ?? $attendance->check_in_location,
-            'check_in_coordinates' => $request->current_coordinates,
-            'reason' => 'Location update'
-        ]);
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Location updated successfully.',
-            'button_action' => 'checkout',
-            'is_within_geofence' => true,
+            'worked_hours' => round($totalWorkedHours, 2),
         ]);
     }
 
@@ -357,6 +362,8 @@ class AttendanceController extends Controller
     {
         $user = Auth::user();
         $today = Carbon::today()->toDateString();
+
+        Log::info('Checking today\'s attendance status', ['user_id' => $user->id, 'date' => $today]);
 
         // Check for approved leave
         $leaveToday = Leave::where('user_id', $user->id)
@@ -366,6 +373,7 @@ class AttendanceController extends Controller
             ->first();
 
         if ($leaveToday) {
+            Log::info('User is on approved leave', ['leave_id' => $leaveToday->id]);
             return response()->json([
                 'status' => 'error',
                 'message' => 'You are on approved leave today.',
@@ -375,6 +383,7 @@ class AttendanceController extends Controller
 
         // Check if today is Sunday
         if (Carbon::today()->isSunday()) {
+            Log::info('Attendance not allowed on Sunday');
             return response()->json([
                 'status' => 'error',
                 'message' => 'Attendance is not allowed on Sunday.',
@@ -388,6 +397,7 @@ class AttendanceController extends Controller
             ->first();
 
         if (!$attendance) {
+            Log::info('No attendance record found for today');
             return response()->json([
                 'status' => 'pending',
                 'message' => 'You have not checked in yet today.',
@@ -395,81 +405,57 @@ class AttendanceController extends Controller
             ]);
         }
 
-        // Check for timeout (e.g., internet disconnection)
-        if ($attendance->check_in && !$attendance->check_out) {
-            $lastUpdate = Carbon::parse($attendance->last_location_update);
-            if ($lastUpdate->diffInMinutes(now()) > 15) { // Timeout after 15 minutes
-                $attendance->update([
-                    'check_out' => now(),
-                    'notes' => ($attendance->notes ?? '') . "\nAuto-checked out due to no location updates.",
-                    'is_within_geofence' => false,
-                    'reason' => 'Auto-checked out due to timeout'
-                ]);
-                return response()->json([
-                    'status' => 'completed',
-                    'message' => 'You have been checked out because you are out of the office area. Please check in after re-entering.',
-                    'button_action' => 'checkin',
-                    'check_in_time' => $attendance->check_in,
-                    'check_out_time' => $attendance->check_out,
-                    'worked_hours' => round(Carbon::parse($attendance->check_in)->diffInMinutes($attendance->check_out) / 60, 2),
-                ]);
+        $sessions = is_string($attendance->sessions) ? json_decode($attendance->sessions, true) : $attendance->sessions;
+        $sessions = is_array($sessions) ? $sessions : [];
+        $totalWorkedHours = 0;
+
+        // Calculate total worked hours
+        if (!empty($sessions)) {
+            foreach ($sessions as $session) {
+                if (!empty($session['check_in']) && !empty($session['check_out'])) {
+                    $totalWorkedHours += Carbon::parse($session['check_in'])->diffInMinutes($session['check_out']) / 60;
+                }
             }
         }
 
-        // Check if checked in but not checked out
+        // Check if there is an active session (check_in but no check_out)
+        $latestSession = !empty($sessions) ? end($sessions) : null;
         if ($attendance->check_in && !$attendance->check_out) {
+            Log::info('Active session found', ['attendance_id' => $attendance->id, 'check_in' => $attendance->check_in]);
             return response()->json([
-                'status' => 'checkin_done',
-                'message' => $attendance->is_within_geofence
-                    ? 'You have checked in but not checked out yet.'
-                    : 'You are outside the office area. Please check out or return to the office.',
+                'status' => 'checkجبن_done',
+                'message' => 'You have checked in but not checked out yet.',
                 'button_action' => 'checkout',
                 'check_in_time' => $attendance->check_in,
-                'is_within_geofence' => $attendance->is_within_geofence,
+                'worked_hours' => round($totalWorkedHours, 2),
+                'attendance_id' => $attendance->id
             ]);
         }
 
-        // Check if both check-in and check-out are completed
-        if ($attendance->check_in && $attendance->check_out) {
-            $workedHours = round(Carbon::parse($attendance->check_in)->diffInMinutes($attendance->check_out) / 60, 2);
-
+        // Handle case where sessions are completed
+        if ($latestSession && !empty($latestSession['check_in']) && !empty($latestSession['check_out'])) {
+            Log::info('Session completed', ['attendance_id' => $attendance->id, 'check_out' => $latestSession['check_out']]);
             return response()->json([
                 'status' => 'completed',
-                'message' => 'You have completed your attendance for today. Please check in again if you re-enter the office.',
+                'message' => 'You have checked out. Re-check-in if you return to work.',
                 'button_action' => 'checkin',
                 'check_in_time' => $attendance->check_in,
-                'check_out_time' => $attendance->check_out,
-                'worked_hours' => $workedHours,
+                'check_out_time' => $latestSession['check_out'],
+                'worked_hours' => round($totalWorkedHours, 2),
+                'attendance_id' => $attendance->id
             ]);
         }
 
+        // Handle invalid or empty sessions
+        Log::warning('Invalid or empty sessions for attendance record', [
+            'attendance_id' => $attendance->id,
+            'sessions' => $attendance->sessions
+        ]);
         return response()->json([
-            'status' => 'unknown',
-            'message' => 'Something unexpected occurred.',
-            'button_action' => 'none'
-        ], 500);
-    }
-
-    public function getGeofenceSettings()
-    {
-        $geofence = GeofenceSettings::first();
-        if (!$geofence) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Geofence settings not configured.',
-                'button_action' => 'none'
-            ], 500);
-        }
-
-        return response()->json([
-            'status' => 'success',
-            'data' => [
-                'office_name' => $geofence->office_name,
-                'latitude' => $geofence->latitude,
-                'longitude' => $geofence->longitude,
-                'radius' => $geofence->radius,
-            ],
-            'button_action' => 'none'
+            'status' => 'pending',
+            'message' => 'Attendance record found but no valid sessions. Please check in again.',
+            'button_action' => 'checkin',
+            'attendance_id' => $attendance->id
         ]);
     }
 }

@@ -430,6 +430,7 @@ class LeadController extends Controller
         }
     }
 
+
     /**
      * Get a specific lead by ID with history
      *
@@ -475,6 +476,14 @@ class LeadController extends Controller
                 'status' => 'error',
                 'message' => 'Lead not found',
             ], 404);
+        }
+
+        // Check if lead is editable (personal_lead or future_lead) unless user is admin
+        if ($user->designation !== 'admin' && !in_array($lead->status, ['personal_lead', 'future_lead'])) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Lead cannot be edited as it is not in personal_lead or future_lead status',
+            ], 403);
         }
 
         if ($user->designation !== 'team_lead' && $user->designation !== 'operations' && 
@@ -579,6 +588,15 @@ class LeadController extends Controller
             ], 404);
         }
 
+        // Check if lead is editable (personal_lead or future_lead) unless user is admin
+        if ($user->designation !== 'admin' && !in_array($lead->status, ['personal_lead', 'future_lead'])) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Lead cannot be updated as it is not in personal_lead or future_lead status',
+            ], 403);
+        }
+
+        // Authorization check
         if ($user->designation !== 'team_lead' && $user->designation !== 'operations' && 
             $user->designation !== 'admin' && !($lead->is_personal_lead && Auth::id() === $lead->employee_id)) {
             return response()->json([
@@ -808,6 +826,15 @@ class LeadController extends Controller
     {
         $user = Auth::user();
         
+        // Check if lead is deletable (personal_lead or future_lead) unless user is admin
+        if ($user->designation !== 'admin' && !in_array($lead->status, ['personal_lead', 'future_lead'])) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Lead cannot be deleted as it is not in personal_lead or future_lead status',
+            ], 403);
+        }
+
+        // Authorization check
         if ($user->designation !== 'team_lead' && $user->designation !== 'admin' && 
             !($lead->is_personal_lead && Auth::id() === $lead->employee_id)) {
             return response()->json([

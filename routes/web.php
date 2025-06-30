@@ -6,6 +6,7 @@ use App\Http\Controllers\TLController\TLDashboardController;
 use App\Http\Controllers\EmployeeController\EmployeeDashboardController as EmployeeController;
 use App\Http\Controllers\EmployeeController\WebLeadController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\TLController\LeadController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -67,9 +68,12 @@ Route::middleware(['auth', 'designation:team_lead'])->prefix('team-lead')->name(
     Route::get('/teams', [TLDashboardController::class, 'indexTeams'])->name('teams.index');
     Route::get('/employees/create', [TLDashboardController::class, 'createEmployee'])->name('employees.create');
     Route::post('/employees', [TLDashboardController::class, 'storeEmployee'])->name('employees.store');
-    Route::get('/leads', [TLDashboardController::class, 'indexLeads'])->name('leads.index');
-    Route::post('/leads/{lead}/approve', [TLDashboardController::class, 'approveLead'])->name('leads.approve');
-    Route::post('/leads/{lead}/reject', [TLDashboardController::class, 'rejectLead'])->name('leads.reject');
+    Route::get('/leads', [LeadController::class, 'indexLeads'])->name('leads.index');
+   Route::post('/leads/{lead}/forward', [LeadController::class, 'forwardToTeamLead'])->name('leads.forward');
+    Route::post('/leads/{lead}/authorize', [LeadController::class, 'setAuthorized'])->name('leads.authorize');
+    Route::post('/leads/{lead}/approve', [LeadController::class, 'approveLead'])->name('leads.approve');
+    Route::post('/leads/{lead}/reject', [LeadController::class, 'rejectLead'])->name('leads.reject');
+    Route::post('/leads/{lead}/future', [LeadController::class, 'setFutureLead'])->name('leads.future');
     Route::get('/tasks', [TLDashboardController::class, 'indexTasks'])->name('tasks.index');
     Route::get('/tasks/create', [TLDashboardController::class, 'createTask'])->name('tasks.create');
     Route::post('/tasks', [TLDashboardController::class, 'storeTask'])->name('tasks.store');
