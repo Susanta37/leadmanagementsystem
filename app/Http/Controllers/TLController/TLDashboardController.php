@@ -65,21 +65,25 @@ class TLDashboardController extends Controller
     //     return redirect()->route('team_lead.employees.index')->with('success', 'Employee created successfully.');
     // }
 
-    
+
 
     public function indexTeams()
     {
-      
-        return view('TeamLead.teams.index');
+
+  $employees = User::withTrashed() // 👈 this is the important part
+        ->where('team_lead_id', auth()->id())
+        ->get();
+
+        return view('TeamLead.teams.index', compact('employees'));
     }
     public function indexReports()
     {
-      
+
         return view('TeamLead.reports.index');
     }
     public function indexSetting(Request $request)
     {
-      
+
         return view('TeamLead.settings.index' ,[
             'user' => $request->user(),
         ]);

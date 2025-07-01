@@ -7,7 +7,10 @@ use App\Http\Controllers\EmployeeController\EmployeeDashboardController as Emplo
 use App\Http\Controllers\EmployeeController\WebLeadController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TLController\LeadController;
+use App\Http\Controllers\TLController\TLEmployeeContoller;
+use App\Http\Controllers\TLController\TLEmployeeController;
 use Illuminate\Support\Facades\Route;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -66,8 +69,6 @@ Route::middleware(['auth', 'designation:employee'])->prefix('employee')->name('e
 Route::middleware(['auth', 'designation:team_lead'])->prefix('team-lead')->name('team_lead.')->group(function () {
     Route::get('/dashboard', [TLDashboardController::class, 'dashboard'])->name('dashboard');
     Route::get('/teams', [TLDashboardController::class, 'indexTeams'])->name('teams.index');
-    Route::get('/employees/create', [TLDashboardController::class, 'createEmployee'])->name('employees.create');
-    Route::post('/employees', [TLDashboardController::class, 'storeEmployee'])->name('employees.store');
     Route::get('/leads', [LeadController::class, 'indexLeads'])->name('leads.index');
    Route::post('/leads/{lead}/forward', [LeadController::class, 'forwardToTeamLead'])->name('leads.forward');
     Route::post('/leads/{lead}/authorize', [LeadController::class, 'setAuthorized'])->name('leads.authorize');
@@ -81,6 +82,22 @@ Route::middleware(['auth', 'designation:team_lead'])->prefix('team-lead')->name(
     Route::get('/setting', [TLDashboardController::class, 'indexSetting'])->name('setting.index');
     Route::post('/tasks/bulk-assign', [TLDashboardController::class, 'bulkAssignTasks'])->name('tasks.bulk_assign');
     Route::get('/notifications', [TLDashboardController::class, 'indexNotifications'])->name('notifications.index');
+
+    // List all employees (for displaying in frontend if needed)
+    //Route::get('/teams', [TLEmployeeController::class, 'index'])->name('employees.index');
+
+    // Store new employee
+    Route::post('/employees', [TLEmployeeController::class, 'store'])->name('employees.store');
+
+    // Route::get('/team/employees/{id}/edit', [TLEmployeeController::class, 'edit'])->name('employees.edit');
+
+    // Update existing employee
+    Route::put('/employees/{id}', [TLEmployeeController::class, 'update'])->name('employees.update');
+
+Route::post('/employees/{id}/deactivate', [TLEmployeeController::class, 'deactivate'])->name('employees.deactivate');
+Route::post('/employees/{id}/activate', [TLEmployeeController::class, 'activate'])->name('employees.activate');
+
+
 });
 
 // Operations routes (accessible only by users with designation 'operations')

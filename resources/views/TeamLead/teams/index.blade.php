@@ -570,6 +570,49 @@
             box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
         }
 
+
+
+        .switch {
+  position: relative;
+  display: inline-block;
+  width: 46px;
+  height: 24px;
+}
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: .3s;
+  border-radius: 34px;
+}
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .3s;
+  border-radius: 50%;
+}
+input:checked + .slider {
+  background-color: #28a745;
+}
+input:checked + .slider:before {
+  transform: translateX(22px);
+}
+
+
         /* Animations */
         @keyframes fadeInDown {
             from {
@@ -644,10 +687,10 @@
 </head>
 <body>
     @include('TeamLead.Components.sidebar')
-    
+
     <div class="main-content">
         @include('TeamLead.Components.header', ['title' => 'Teams', 'subtitle' => 'Manage your team members and employees'])
-        
+
         <div class="teams-container">
             <!-- Page Header -->
             <div class="page-header">
@@ -664,9 +707,11 @@
                         <p class="form-subtitle">Fill in the details to add a new team member</p>
                     </div>
 
-                    <form class="employee-form" id="employeeForm">
+                    <form class="employee-form" id="employeeForm" method="POST" action="{{ route('team_lead.employees.store') }}" enctype="multipart/form-data">
+                        @csrf
+
                         <input type="hidden" id="employeeId" name="id">
-                        
+
                         <!-- Profile Photo -->
                         <div class="form-group">
                             <label class="form-label">
@@ -706,6 +751,24 @@
                             <input type="text" id="employeeDesignation" name="designation" class="form-input" placeholder="Enter designation" required>
                         </div>
 
+  <!-- Employee Role -->
+<div class="form-group">
+    <label for="employeeRole" class="form-label">
+        <i class="fas fa-user-tag"></i>
+        Role <span class="required"></span>
+    </label>
+    <select id="employeeRole" name="employee_role" class="form-input" >
+        <option value="">-- Select Role --</option>
+        <option value="developer">Developer</option>
+        <option value="designer">Designer</option>
+        <option value="tester">Tester</option>
+        <option value="hr">HR</option>
+        <option value="manager">Manager</option>
+    </select>
+</div>
+
+
+
                         <!-- Email -->
                         <div class="form-group">
                             <label for="employeeEmail" class="form-label">
@@ -740,9 +803,9 @@
                                 Add Employee
                             </button>
                             <button type="button" class="btn btn-secondary" onclick="resetForm()">
-                                <i class="fas fa-times"></i>
-                                Cancel
-                            </button>
+    <i class="fas fa-times"></i>
+    Cancel
+</button>
                         </div>
                     </form>
                 </div>
@@ -779,14 +842,94 @@
                                     <th>Designation</th>
                                     <th>Contact</th>
                                     <th>Address</th>
+                                    <th>Status</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="employeesTableBody">
-                                <!-- Table rows will be populated here -->
+
+   @forelse($employees as $employee)
+    <tr>
+        <!-- Employee Info -->
+        <td>
+            <div class="employee-info">
+                <div class="employee-avatar">
+                    @if($employee->profile_photo)
+                        <img src="{{ asset('storage/' . $employee->profile_photo) }}" alt="{{ $employee->name }}">
+                    @else
+                        <div class="employee-avatar-placeholder">
+                            {{ strtoupper(substr($employee->name, 0, 1)) }}
+                        </div>
+                    @endif
+                </div>
+                <div class="employee-details">
+                    <div class="employee-name">{{ $employee->name }}</div>
+                    <div class="employee-email">{{ $employee->email }}</div>
+                </div>
+            </div>
+        </td>
+
+        <!-- Designation -->
+        <td>
+            <span class="badge bg-primary text-capitalize">{{ $employee->designation }}</span>
+        </td>
+
+        <!-- Phone -->
+        <td>
+            <i class="fas fa-phone"></i> {{ $employee->phone }}
+        </td>
+
+        <!-- Address -->
+        <td>
+            <i class="fas fa-map-marker-alt"></i> {{ $employee->address ?? 'Not provided' }}
+        </td>
+
+        <!-- Status Badge -->
+        <td>
+            @if($employee->deleted_at)
+                <span class="badge bg-danger">Inactive</span>
+            @else
+                <span class="badge bg-success">Active</span>
+            @endif
+        </td>
+
+      <!-- Actions -->
+
+<td>
+    <div class="d-flex align-items-center gap-2">
+        <!-- Edit Button -->
+        <button type="button" class="btn btn-sm btn-warning" onclick="editEmployee({{ $employee->id }})" title="Edit">
+            <i class="fas fa-edit"></i>
+        </button>
+
+        <!-- Active/Inactive Toggle -->
+        <form action="{{ $employee->deleted_at
+            ? route('team_lead.employees.activate', $employee->id)
+            : route('team_lead.employees.deactivate', $employee->id)
+        }}" method="POST" class="toggle-form m-0 p-0">
+            @csrf
+            <label class="switch mb-0">
+                <input type="checkbox" onchange="this.form.submit()" {{ !$employee->deleted_at ? 'checked' : '' }}>
+                <span class="slider round"></span>
+            </label>
+        </form>
+    </div>
+</td>
+
+
+    </tr>
+@empty
+    <tr>
+        <td colspan="6" class="text-center">No employees found.</td>
+    </tr>
+@endforelse
+
+
+
+
                             </tbody>
                         </table>
-                        
+
                         <!-- Empty State -->
                         <div class="empty-state" id="emptyState">
                             <div class="empty-state-icon">
@@ -819,40 +962,8 @@
     </div>
 
     <script>
-        // Sample employees data (in real app, this would come from backend)
-        let employees = [
-            {
-                id: 1,
-                name: 'John Doe',
-                designation: 'Senior Developer',
-                email: 'john.doe@company.com',
-                phone: '+91 98765 43210',
-                address: 'Mumbai, Maharashtra',
-                photo: null,
-                createdAt: new Date('2023-01-15')
-            },
-            {
-                id: 2,
-                name: 'Sarah Wilson',
-                designation: 'Marketing Manager',
-                email: 'sarah.wilson@company.com',
-                phone: '+91 87654 32109',
-                address: 'Delhi, NCR',
-                photo: null,
-                createdAt: new Date('2023-02-20')
-            },
-            {
-                id: 3,
-                name: 'Mike Johnson',
-                designation: 'Operations Executive',
-                email: 'mike.johnson@company.com',
-                phone: '+91 76543 21098',
-                address: 'Bangalore, Karnataka',
-                photo: null,
-                createdAt: new Date('2023-03-10')
-            }
-        ];
 
+       let employees = @json($employees ?? []);
         let filteredEmployees = [...employees];
         let editingEmployeeId = null;
         let nextEmployeeId = 4;
@@ -861,7 +972,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             renderEmployeesTable();
             updateStats();
-            
+
             // Form submission
             document.getElementById('employeeForm').addEventListener('submit', handleFormSubmit);
         });
@@ -869,7 +980,7 @@
         // Handle form submission
         function handleFormSubmit(e) {
             e.preventDefault();
-            
+
             const formData = new FormData(e.target);
             const employeeData = {
                 name: formData.get('name'),
@@ -899,7 +1010,7 @@
 
             employees.push(newEmployee);
             filteredEmployees = [...employees];
-            
+
             renderEmployeesTable();
             updateStats();
             resetForm();
@@ -912,7 +1023,7 @@
             if (index !== -1) {
                 employees[index] = { ...employees[index], ...employeeData };
                 filteredEmployees = [...employees];
-                
+
                 renderEmployeesTable();
                 updateStats();
                 resetForm();
@@ -926,7 +1037,7 @@
             if (!employee) return;
 
             editingEmployeeId = id;
-            
+
             // Populate form
             document.getElementById('employeeId').value = employee.id;
             document.getElementById('employeeName').value = employee.name;
@@ -934,11 +1045,11 @@
             document.getElementById('employeeEmail').value = employee.email;
             document.getElementById('employeePhone').value = employee.phone;
             document.getElementById('employeeAddress').value = employee.address === 'Not provided' ? '' : employee.address;
-            
+
             // Update form title and button
             document.getElementById('formTitle').textContent = 'Edit Employee';
             document.getElementById('submitBtn').innerHTML = '<i class="fas fa-save"></i> Update Employee';
-            
+
             // Handle photo
             if (employee.photo) {
                 document.getElementById('photoPreview').src = employee.photo;
@@ -958,29 +1069,42 @@
             if (confirm(`Are you sure you want to delete ${employee.name}? This action cannot be undone.`)) {
                 employees = employees.filter(emp => emp.id !== id);
                 filteredEmployees = [...employees];
-                
+
                 renderEmployeesTable();
                 updateStats();
                 showNotification('Employee deleted successfully!', 'success');
             }
         }
 
-        // Reset form
-        function resetForm() {
-            editingEmployeeId = null;
-            document.getElementById('employeeForm').reset();
-            document.getElementById('employeeId').value = '';
-            
-            // Reset photo preview
-            document.getElementById('photoPreview').style.display = 'none';
-            document.getElementById('photoPlaceholder').style.display = 'flex';
-            
-            // Reset form title and button
-            document.getElementById('formTitle').textContent = 'Add New Employee';
-            document.getElementById('submitBtn').innerHTML = '<i class="fas fa-plus"></i> Add Employee';
-        }
+        //reset form
+function resetForm() {
+    console.log('resetForm called'); // For debugging
+    editingEmployeeId = null;
 
-        // Handle photo upload
+    const form = document.getElementById('employeeForm');
+    const idField = document.getElementById('employeeId');
+    const photoPreview = document.getElementById('photoPreview');
+    const photoPlaceholder = document.getElementById('photoPlaceholder');
+    const formTitle = document.getElementById('formTitle');
+    const submitBtn = document.getElementById('submitBtn');
+
+    if (!form || !idField || !photoPreview || !photoPlaceholder || !formTitle || !submitBtn) {
+        console.error('One or more form elements not found');
+        showNotification('Error resetting form: Elements not found', 'error');
+        return;
+    }
+
+    form.reset();
+    idField.value = '';
+    photoPreview.style.display = 'none';
+    photoPreview.src = '';
+    photoPlaceholder.style.display = 'flex';
+    formTitle.textContent = 'Add New Employee';
+    submitBtn.innerHTML = '<i class="fas fa-plus"></i> Add Employee';
+}
+
+
+// Handle photo upload
         function handlePhotoUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -1009,78 +1133,80 @@
         // Filter employees
         function filterEmployees() {
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-            
+
             filteredEmployees = employees.filter(employee => {
                 return employee.name.toLowerCase().includes(searchTerm) ||
                        employee.designation.toLowerCase().includes(searchTerm) ||
                        employee.email.toLowerCase().includes(searchTerm) ||
                        employee.phone.includes(searchTerm);
             });
-            
+
             renderEmployeesTable();
         }
 
-        // Render employees table
-        function renderEmployeesTable() {
-            const tbody = document.getElementById('employeesTableBody');
-            const emptyState = document.getElementById('emptyState');
-            
-            if (filteredEmployees.length === 0) {
-                tbody.innerHTML = '';
-                emptyState.style.display = 'block';
-                return;
-            }
-            
-            emptyState.style.display = 'none';
-            
-            tbody.innerHTML = filteredEmployees.map(employee => {
-                const initials = employee.name.split(' ').map(n => n[0]).join('').toUpperCase();
-                
-                return `
-                    <tr>
-                        <td>
-                            <div class="employee-info">
-                                <div class="employee-avatar">
-                                    ${employee.photo ? 
-                                        `<img src="${employee.photo}" alt="${employee.name}">` :
-                                        `<div class="employee-avatar-placeholder">${initials}</div>`
-                                    }
-                                </div>
-                                <div class="employee-details">
-                                    <div class="employee-name">${employee.name}</div>
-                                    <div class="employee-email">${employee.email}</div>
-                                </div>
-                            </div>
-                        </td>
-                        <td>
-                            <span class="designation-badge">${employee.designation}</span>
-                        </td>
-                        <td>
-                            <div class="contact-info">
-                                <i class="fas fa-phone"></i>
-                                ${employee.phone}
-                            </div>
-                        </td>
-                        <td>
-                            <div class="contact-info">
-                                <i class="fas fa-map-marker-alt"></i>
-                                ${employee.address}
-                            </div>
-                        </td>
-                        <td>
-                            <div class="action-buttons">
-                                <button class="action-btn btn-edit" onclick="editEmployee(${employee.id})" title="Edit Employee">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                                <button class="action-btn btn-delete" onclick="deleteEmployee(${employee.id})" title="Delete Employee">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-        }
+        // Render employees table //not needed
+        // function renderEmployeesTable() {
+        //     const tbody = document.getElementById('employeesTableBody');
+        //     const emptyState = document.getElementById('emptyState');
+
+        //     if (filteredEmployees.length === 0) {
+        //         tbody.innerHTML = '';
+        //         emptyState.style.display = 'block';
+        //         return;
+        //     }
+
+        //     emptyState.style.display = 'none';
+
+        //     tbody.innerHTML = filteredEmployees.map(employee => {
+        //         const initials = employee.name.split(' ').map(n => n[0]).join('').toUpperCase();
+
+        //         return `
+        //             <tr>
+        //                 <td>
+        //                     <div class="employee-info">
+        //                         <div class="employee-avatar">
+        //                             ${employee.photo ?
+        //                                 `<img src="${employee.photo}" alt="${employee.name}">` :
+        //                                 `<div class="employee-avatar-placeholder">${initials}</div>`
+        //                             }
+        //                         </div>
+        //                         <div class="employee-details">
+        //                             <div class="employee-name">${employee.name}</div>
+        //                             <div class="employee-email">${employee.email}</div>
+        //                         </div>
+        //                     </div>
+        //                 </td>
+        //                 <td>
+        //                     <span class="designation-badge">${employee.designation}</span>
+        //                 </td>
+        //                 <td>
+        //                     <div class="contact-info">
+        //                         <i class="fas fa-phone"></i>
+        //                         ${employee.phone}
+        //                     </div>
+        //                 </td>
+        //                 <td>
+        //                     <div class="contact-info">
+        //                         <i class="fas fa-map-marker-alt"></i>
+        //                         ${employee.address}
+        //                     </div>
+        //                 </td>
+        //                 <td>
+        //                     <div class="action-buttons">
+        //                         <button class="action-btn btn-edit" onclick="editEmployee(${employee.id})" title="Edit Employee">
+        //                             <i class="fas fa-edit"></i>
+        //                         </button>
+        //                         <button class="action-btn btn-delete" onclick="deleteEmployee(${employee.id})" title="Delete Employee">
+        //                             <i class="fas fa-trash"></i>
+        //                         </button>
+        //                     </div>
+        //                 </td>
+        //             </tr>
+        //         `;
+        //     }).join('');
+        // }
+
+
 
         // Update stats
         function updateStats() {
@@ -1122,7 +1248,7 @@
                 animation: slideInRight 0.3s ease-out;
                 max-width: 400px;
             `;
-            
+
             const icon = type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle';
             notification.innerHTML = `
                 <i class="fas fa-${icon}"></i>
@@ -1131,9 +1257,9 @@
                     <i class="fas fa-times"></i>
                 </button>
             `;
-            
+
             document.body.appendChild(notification);
-            
+
             // Auto remove after 5 seconds
             setTimeout(() => {
                 notification.style.animation = 'slideOutRight 0.3s ease-out';
@@ -1143,7 +1269,7 @@
                     }
                 }, 300);
             }, 5000);
-            
+
             // Close button
             notification.querySelector('button').addEventListener('click', () => {
                 notification.style.animation = 'slideOutRight 0.3s ease-out';
@@ -1168,7 +1294,7 @@
                     opacity: 1;
                 }
             }
-            
+
             @keyframes slideOutRight {
                 from {
                     transform: translateX(0);
