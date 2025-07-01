@@ -34,7 +34,7 @@ class UserCredentials extends Mailable
     public function build()
     {
         return $this->subject('Your Login Credentials')
-                    ->view('emails.user_credentials')
+                    ->markdown('emails.user_credentials')
                     ->with([
                         'name' => $this->user->name,
                         'email' => $this->user->email,
