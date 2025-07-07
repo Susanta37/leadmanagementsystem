@@ -518,7 +518,7 @@ class LeadController extends Controller
                 'aadhar_card_url' => null,
                 'signature_url' => null,
             ],
-            'histories' => $lead->histories,
+            'histories' => $lead->forwardedHistories,
         ];
 
         if ($lead->lead_type === 'personal_loan' || $lead->lead_type === 'home_loan') {
