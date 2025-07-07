@@ -20,6 +20,7 @@ class User extends Authenticatable
         'password',
         'phone',
         'designation',
+        'employee_role',
         'department',
         'profile_photo',
         'address',
@@ -94,6 +95,11 @@ class User extends Authenticatable
     {
         return $this->belongsTo(User::class, 'team_lead_id');
     }
+
+    public function leads()
+{
+    return $this->hasMany(Lead::class, 'employee_id');
+}
 
     // Employees under this Team Lead
     public function employees()

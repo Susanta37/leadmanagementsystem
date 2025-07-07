@@ -6,6 +6,12 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Leads Management - Lead Management System</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- ✅ Bootstrap CSS (you likely already have this) -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<!-- ✅ Bootstrap JS Bundle (includes Modal support) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
     <style>
         /* Base Styles */
         * {
@@ -904,10 +910,10 @@
 </head>
 <body>
     @include('TeamLead.Components.sidebar')
-    
+
     <div class="main-content">
         @include('TeamLead.Components.header', ['title' => 'Leads Management', 'subtitle' => 'Create, view, and manage your leads'])
-        
+
         <div class="dashboard-container">
             <!-- Page Header with Filters -->
             <div class="page-header">
@@ -925,199 +931,65 @@
             </div>
 
             <!-- Advanced Filters -->
-            <div class="advanced-filters" id="advancedFilters">
-                <form id="filterForm">
-                    <div class="filters-grid">
-                        <div class="filter-group">
-                            <label for="statusFilter">Status</label>
-                            <select id="statusFilter" name="status" class="filter-select" onchange="filterLeads()">
-                                <option value="">All Statuses</option>
-                                <option value="personal_lead" {{ request('status') == 'personal_lead' ? 'selected' : '' }}>Personal Lead</option>
-                                <option value="authorized" {{ request('status') == 'authorized' ? 'selected' : '' }}>Authorized</option>
-                                <option value="approved" {{ request('status') == 'approved' ? 'selected' : '' }}>Approved</option>
-                                <option value="rejected" {{ request('status') == 'rejected' ? 'selected' : '' }}>Rejected</option>
-                                <option value="disbursed" {{ request('status') == 'disbursed' ? 'selected' : '' }}>Disbursed</option>
-                                <option value="future_lead" {{ request('status') == 'future_lead' ? 'selected' : '' }}>Future Lead</option>
-                                <option value="login" {{ request('status') == 'login' ? 'selected' : '' }}>Login</option>
-                            </select>
-                        </div>
-                        <div class="filter-group">
-                            <label for="assignmentFilter">Assignment</label>
-                            <select id="assignmentFilter" name="assignment" class="filter-select" onchange="filterLeads()">
-                                <option value="">All</option>
-                                <option value="assigned" {{ request('assignment') == 'assigned' ? 'selected' : '' }}>Assigned</option>
-                                <option value="unassigned" {{ request('assignment') == 'unassigned' ? 'selected' : '' }}>Unassigned</option>
-                            </select>
-                        </div>
-                        <div class="filter-group">
-                            <label for="dateFromFilter">Date From</label>
-                            <input type="date" id="dateFromFilter" name="date_from" class="filter-input" value="{{ request('date_from') }}" onchange="filterLeads()">
-                        </div>
-                        <div class="filter-group">
-                            <label for="dateToFilter">Date To</label>
-                            <input type="date" id="dateToFilter" name="date_to" class="filter-input" value="{{ request('date_to') }}" onchange="filterLeads()">
-                        </div>
-                        <div class="filter-group">
-                            <label for="searchFilter">Search</label>
-                            <div class="search-input-wrapper">
-                                <input type="text" id="searchFilter" name="search" class="filter-input" placeholder="Search by name, company..." value="{{ request('search') }}" oninput="filterLeads()">
-                                <i class="fas fa-search"></i>
-                            </div>
-                        </div>
-                        <div class="filter-actions">
-                            <button type="button" class="btn-reset" onclick="resetFilters()">
-                                <i class="fas fa-undo"></i>
-                                Reset
-                            </button>
-                        </div>
-                    </div>
-                </form>
+           <div class="advanced-filters" id="advancedFilters">
+    <form id="filterForm" method="GET" action="{{ route('team_lead.leads.index') }}">
+        <div class="filters-grid">
+            <!-- ✅ Status Filter -->
+            <div class="filter-group">
+                <label for="statusFilter">Status</label>
+                <select id="statusFilter" name="status" class="filter-select" onchange="submitFilters()">
+                    <option value="">All Statuses</option>
+                    <option value="authorized" {{ request('status') == 'authorized' ? 'selected' : '' }}>Authorized</option>
+                    <option value="personal_lead" {{ request('status') == 'personal_lead' ? 'selected' : '' }}>Personal Lead</option>
+                    <option value="future_lead" {{ request('status') == 'future_lead' ? 'selected' : '' }}>Future Lead</option>
+                    <option value="rejected" {{ request('status') == 'rejected' ? 'selected' : '' }}>Rejected</option>
+                </select>
             </div>
+
+            <!-- ✅ Assignment Filter -->
+            <div class="filter-group">
+                <label for="assignmentFilter">Assignment</label>
+                <select id="assignmentFilter" name="assignment" class="filter-select" onchange="submitFilters()">
+                    <option value="">All</option>
+                    <option value="assigned" {{ request('assignment') == 'assigned' ? 'selected' : '' }}>Assigned</option>
+                    <option value="unassigned" {{ request('assignment') == 'unassigned' ? 'selected' : '' }}>Unassigned</option>
+                </select>
+            </div>
+
+            <!-- ✅ Date From -->
+            <div class="filter-group">
+                <label for="dateFromFilter">Date From</label>
+                <input type="date" id="dateFromFilter" name="date_from" class="filter-input" value="{{ request('date_from') }}" onchange="submitFilters()">
+            </div>
+
+            <!-- ✅ Date To -->
+            <div class="filter-group">
+                <label for="dateToFilter">Date To</label>
+                <input type="date" id="dateToFilter" name="date_to" class="filter-input" value="{{ request('date_to') }}" onchange="submitFilters()">
+            </div>
+
+            <!-- ✅ Search -->
+            <div class="filter-group">
+                <label for="searchFilter">Search</label>
+                <div class="search-input-wrapper">
+                    <input type="text" id="searchFilter" name="search" class="filter-input" placeholder="Search by name, company..." value="{{ request('search') }}">
+                    <i class="fas fa-search"></i>
+                </div>
+            </div>
+
+            <!-- ✅ Reset Button -->
+            <div class="filter-actions">
+                <button type="button" class="btn-reset" onclick="resetFilters()">
+                    <i class="fas fa-undo"></i> Reset
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
 
             <!-- Main Content Grid -->
             <div class="leads-content-grid">
-                <!-- Left Side - Lead Form -->
-                <div class="lead-form-container">
-                    <div class="form-header">
-                        <h2 id="formTitle">Add New Lead</h2>
-                        <p id="formSubtitle">Fill in the details to create a new lead</p>
-                    </div>
-                    <form id="leadForm" class="lead-form" onsubmit="saveLead(event)">
-                        <input type="hidden" id="leadId" name="id">
-                        
-                        <div class="form-section">
-                            <h3 class="section-title">
-                                <i class="fas fa-user"></i>
-                                Personal Information
-                            </h3>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="leadName">Full Name <span class="required">*</span></label>
-                                    <input type="text" id="leadName" name="name" class="form-control" required>
-                                </div>
-                                <div class="form-group">
-                                    <label for="leadEmail">Email Address</label>
-                                    <input type="email" id="leadEmail" name="email" class="form-control">
-                                </div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="leadPhone">Phone Number <span class="required">*</span></label>
-                                    <input type="tel" id="leadPhone" name="phone" class="form-control" required>
-                                </div>
-                                <div class="form-group">
-                                    <label for="leadDob">Date of Birth</label>
-                                    <input type="date" id="leadDob" name="dob" class="form-control">
-                                </div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="leadCity">City</label>
-                                    <input type="text" id="leadCity" name="city" class="form-control">
-                                </div>
-                                <div class="form-group">
-                                    <label for="leadDistrict">District</label>
-                                    <input type="text" id="leadDistrict" name="district" class="form-control">
-                                </div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="leadState">State</label>
-                                    <input type="text" id="leadState" name="state" class="form-control">
-                                </div>
-                                <div class="form-group">
-                                    <label for="leadTeamLead">Team Lead</label>
-                                    <select id="leadTeamLead" name="team_lead_id" class="form-control">
-                                        {{-- <option value="">Select Team Lead</option>
-                                        @foreach($teamLeads as $teamLead)
-                                            <option value="{{ $teamLead->id }}">{{ $teamLead->name }}</option>
-                                        @endforeach --}}
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="form-section">
-                            <h3 class="section-title">
-                                <i class="fas fa-building"></i>
-                                Company Details
-                            </h3>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="leadCompany">Company Name</label>
-                                    <input type="text" id="leadCompany" name="company_name" class="form-control">
-                                </div>
-                                <div class="form-group">
-                                    <label for="leadBankName">Bank Name</label>
-                                    <input type="text" id="leadBankName" name="bank_name" class="form-control">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="form-section">
-                            <h3 class="section-title">
-                                <i class="fas fa-chart-line"></i>
-                                Lead Details
-                            </h3>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="leadAmount">Lead Amount (₹) <span class="required">*</span></label>
-                                    <input type="number" id="leadAmount" name="lead_amount" class="form-control" required>
-                                </div>
-                                <div class="form-group">
-                                    <label for="leadSalary">Salary</label>
-                                    <input type="number" id="leadSalary" name="salary" class="form-control">
-                                </div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="leadSuccessPercentage">Success Percentage <span class="required">*</span></label>
-                                    <input type="number" id="leadSuccessPercentage" name="success_percentage" class="form-control" min="0" max="100" required>
-                                </div>
-                                <div class="form-group">
-                                    <label for="leadExpectedMonth">Expected Month</label>
-                                    <input type="month" id="leadExpectedMonth" name="expected_month" class="form-control">
-                                </div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="leadType">Lead Type</label>
-                                    <input type="text" id="leadType" name="lead_type" class="form-control">
-                                </div>
-                                <div class="form-group">
-                                    <label for="leadTurnoverAmount">Turnover Amount</label>
-                                    <input type="number" id="leadTurnoverAmount" name="turnover_amount" class="form-control">
-                                </div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="leadVintageYear">Vintage Year</label>
-                                    <input type="number" id="leadVintageYear" name="vintage_year" class="form-control">
-                                </div>
-                                <div class="form-group">
-                                    <label for="leadVoiceRecording">Voice Recording URL</label>
-                                    <input type="url" id="leadVoiceRecording" name="voice_recording" class="form-control">
-                                </div>
-                            </div>
-                            <div class="form-group full-width">
-                                <label for="leadNotes">Notes</label>
-                                <textarea id="leadNotes" name="remarks" class="form-control" rows="3"></textarea>
-                            </div>
-                            <input type="hidden" id="leadStatus" name="status" value="personal_lead">
-                        </div>
-
-                        <div class="form-actions">
-                            <button type="button" class="btn-secondary" onclick="resetForm()">
-                                <i class="fas fa-times"></i>
-                                Cancel
-                            </button>
-                            <button type="submit" id="saveButton" class="btn-primary">
-                                <i class="fas fa-save"></i>
-                                Save Lead
-                            </button>
-                        </div>
-                    </form>
-                </div>
 
                 <!-- Right Side - Leads Table -->
                 <div class="leads-table-container">
@@ -1173,9 +1045,7 @@
                                                 <button class="action-btn edit" onclick="editLead({{ $lead['id'] }}); event.stopPropagation();" title="Edit">
                                                     <i class="fas fa-edit"></i>
                                                 </button>
-                                                <button class="action-btn delete" onclick="deleteLead({{ $lead['id'] }}); event.stopPropagation();" title="Delete">
-                                                    <i class="fas fa-trash-alt"></i>
-                                                </button>
+
                                             </div>
                                         </td>
                                     </tr>
@@ -1285,29 +1155,23 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="detail-section">
-                            <h4>Notes</h4>
-                            <div class="remarks-box">
-                                <p id="modalLeadNotes"></p>
-                            </div>
-                        </div>
+
+
+<!-- ✅ Rejection Reason Section (initially hidden) -->
+<div class="detail-section" id="rejectionReasonSection" style="display: none;">
+    <h4>Rejection Reason</h4>
+    <div class="remarks-box">
+        <p id="modalLeadReason"></p>
+    </div>
+</div>
+
                     </div>
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn-secondary" onclick="closeModal('leadDetailModal')">
-                    <i class="fas fa-times"></i>
-                    Close
-                </button>
-                <button class="btn-primary" onclick="editLead(currentLeadId)">
-                    <i class="fas fa-edit"></i>
-                    Edit Lead
-                </button>
+
                 @if(auth()->user()->hasDesignation('team_lead'))
-                    <button class="btn-primary" onclick="forwardToTeamLead(currentLeadId)">
-                        <i class="fas fa-share"></i>
-                        Forward to Team Lead
-                    </button>
+
                     <button class="btn-primary" onclick="setAuthorized(currentLeadId)">
                         <i class="fas fa-check-circle"></i>
                         Authorize
@@ -1316,14 +1180,19 @@
                         <i class="fas fa-clock"></i>
                         Mark as Future Lead
                     </button>
-                    <button class="btn-primary" onclick="approveLead(currentLeadId, false)">
-                        <i class="fas fa-check"></i>
-                        Approve
-                    </button>
-                    <button class="btn-primary" onclick="approveLead(currentLeadId, true)">
-                        <i class="fas fa-share"></i>
-                        Approve & Forward to Operations
-                    </button>
+
+                    <!-- ✅ Forward to Operations -->
+<button class="btn-primary" onclick="forwardToOperations(currentLeadId)">
+    <i class="fas fa-share"></i>
+    Forward to Operations
+</button>
+
+<!-- ✅ Forward to Admin -->
+<button class="btn-primary" onclick="forwardToAdmin(currentLeadId)">
+    <i class="fas fa-share"></i>
+    Forward to Admin
+</button>
+
                     <button class="btn-danger" onclick="rejectLead(currentLeadId)">
                         <i class="fas fa-times-circle"></i>
                         Reject
@@ -1334,7 +1203,7 @@
     </div>
 
     <!-- Delete Confirmation Modal -->
-    <div class="modal-overlay" id="deleteConfirmModal">
+    {{-- <div class="modal-overlay" id="deleteConfirmModal">
         <div class="modal-container modal-sm">
             <div class="modal-header">
                 <h2 class="modal-title">Confirm Delete</h2>
@@ -1361,11 +1230,46 @@
                 </button>
             </div>
         </div>
+    </div> --}}
+
+
+    <!-- Forward to Operations Modal -->
+<div class="modal fade" id="forwardOperationsModal" tabindex="-1" aria-labelledby="forwardOperationsLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Forward Lead to Operations</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="forwardOperationsForm">
+          <input type="hidden" id="forward-lead-id">
+
+          <div class="mb-3">
+            <label for="operation-user" class="form-label">Select Operation User</label>
+            <select id="operation-user" class="form-select" required></select>
+          </div>
+
+          <div class="mb-3">
+            <label for="operation-remarks" class="form-label">Remarks</label>
+            <textarea id="operation-remarks" class="form-control" rows="3"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="submitForwardToOperations()">Forward</button>
+      </div>
     </div>
+  </div>
+</div>
 
     <script>
+
         // Initial leads data from server
         let leadsData = @json($formattedLeads);
+        console.log('Loaded leadsData count:', leadsData.length);
+
         let filteredLeads = [...leadsData];
         let currentLeadId = null;
         let isEditing = false;
@@ -1386,46 +1290,48 @@
         }
 
         // Filter leads
-        function filterLeads() {
-            const form = document.getElementById('filterForm');
-            const formData = new FormData(form);
-            const query = new URLSearchParams(formData).toString();
-            window.location.href = `{{ route('team_lead.leads.index') }}?${query}`;
-        }
+      function filterLeads() {
+    const form = document.getElementById('filterForm');
+    const params = new URLSearchParams(new FormData(form)).toString();
+    window.location.href = `${window.location.pathname}?${params}`;
+}
+
 
         // Reset filters
-        function resetFilters() {
-            window.location.href = '{{ route('team_lead.leads.index') }}';
-        }
+       function resetFilters() {
+    document.getElementById('filterForm').reset();
+    window.location.href = window.location.pathname;
+}
+
 
         // Render leads table
         function renderLeadsTable() {
             const tableBody = document.getElementById('leadsTableBody');
             const emptyState = document.getElementById('emptyState');
             const tableWrapper = document.querySelector('.table-wrapper');
-            
+
             if (filteredLeads.length === 0) {
                 emptyState.style.display = 'flex';
                 tableWrapper.style.display = 'none';
                 return;
             }
-            
+
             emptyState.style.display = 'none';
             tableWrapper.style.display = 'block';
-            
+
             tableBody.innerHTML = '';
             filteredLeads.forEach(lead => {
                 const row = document.createElement('tr');
                 row.onclick = () => viewLeadDetails(lead.id);
-                
+
                 const formattedAmount = new Intl.NumberFormat('en-IN', {
                     style: 'currency',
                     currency: 'INR',
                     maximumFractionDigits: 0
                 }).format(lead.amount);
-                
+
                 const initials = lead.name.split(' ').map(n => n[0]).join('');
-                
+
                 row.innerHTML = `
                     <td>
                         <div class="lead-info">
@@ -1451,9 +1357,7 @@
                             <button class="action-btn edit" onclick="editLead(${lead.id}); event.stopPropagation();" title="Edit">
                                 <i class="fas fa-edit"></i>
                             </button>
-                            <button class="action-btn delete" onclick="deleteLead(${lead.id}); event.stopPropagation();" title="Delete">
-                                <i class="fas fa-trash-alt"></i>
-                            </button>
+
                         </div>
                     </td>
                 `;
@@ -1470,23 +1374,23 @@
         function viewLeadDetails(id) {
             const lead = leadsData.find(lead => lead.id === id);
             if (!lead) return;
-            
+
             currentLeadId = id;
-            
+
             const formattedAmount = new Intl.NumberFormat('en-IN', {
                 style: 'currency',
                 currency: 'INR',
                 maximumFractionDigits: 0
             }).format(lead.amount);
-            
+
             const formattedTurnover = lead.turnover_amount ? new Intl.NumberFormat('en-IN', {
                 style: 'currency',
                 currency: 'INR',
                 maximumFractionDigits: 0
             }).format(lead.turnover_amount) : '-';
-            
+
             const initials = lead.name.split(' ').map(n => n[0]).join('');
-            
+
             document.getElementById('modalLeadInitials').textContent = initials;
             document.getElementById('modalLeadName').textContent = lead.name;
             document.getElementById('modalLeadCompany').textContent = lead.company || '-';
@@ -1505,23 +1409,25 @@
             document.getElementById('modalLeadVoiceRecording').textContent = lead.voice_recording || '-';
             document.getElementById('modalLeadEmployeeName').textContent = lead.employee_name || '-';
             document.getElementById('modalLeadTeamLeadName').textContent = lead.team_lead_name || '-';
-            document.getElementById('modalLeadNotes').textContent = lead.notes || 'No notes available';
-            
+            //document.getElementById('modalLeadNotes').textContent = lead.notes || 'No notes available';
+
             document.getElementById('leadDetailModal').classList.add('active');
+            document.getElementById('modalLeadReason').textContent = lead.reason || '-';
+
         }
 
         // Edit lead
         function editLead(id) {
             const lead = leadsData.find(lead => lead.id === id);
             if (!lead) return;
-            
+
             isEditing = true;
             currentLeadId = id;
-            
+
             document.getElementById('formTitle').textContent = 'Edit Lead';
             document.getElementById('formSubtitle').textContent = 'Update the lead information';
             document.getElementById('saveButton').innerHTML = '<i class="fas fa-save"></i> Update Lead';
-            
+
             document.getElementById('leadId').value = lead.id;
             document.getElementById('leadName').value = lead.name;
             document.getElementById('leadEmail').value = lead.email || '';
@@ -1542,21 +1448,21 @@
             document.getElementById('leadVoiceRecording').value = lead.voice_recording || '';
             document.getElementById('leadNotes').value = lead.notes || '';
             document.getElementById('leadTeamLead').value = lead.team_lead_id || '';
-            
+
             closeModal('leadDetailModal');
             document.querySelector('.lead-form-container').scrollIntoView({ behavior: 'smooth' });
         }
 
         // Delete lead
-        function deleteLead(id) {
-            currentLeadId = id;
-            document.getElementById('deleteConfirmModal').classList.add('active');
-        }
+        // function deleteLead(id) {
+        //     currentLeadId = id;
+        //     document.getElementById('deleteConfirmModal').classList.add('active');
+        // }
 
         // Confirm delete
         function confirmDelete() {
             if (!currentLeadId) return;
-            
+
             fetch(`/team-lead/leads/${currentLeadId}`, {
                 method: 'DELETE',
                 headers: {
@@ -1579,21 +1485,21 @@
                 showNotification('Error deleting lead', 'error');
                 console.error(error);
             });
-            
+
             closeModal('deleteConfirmModal');
         }
 
         // Save or update lead
         function saveLead(event) {
             event.preventDefault();
-            
+
             const form = document.getElementById('leadForm');
             const formData = new FormData(form);
             const leadData = Object.fromEntries(formData);
-            
+
             const url = isEditing ? `/team-lead/leads/${leadData.id}` : '';
             const method = isEditing ? 'PUT' : 'POST';
-            
+
             fetch(url, {
                 method: method,
                 headers: {
@@ -1622,15 +1528,15 @@
         function forwardToTeamLead(id) {
             const lead = leadsData.find(lead => lead.id === id);
             if (!lead) return;
-            
+
             const teamLeadId = prompt('Enter Team Lead ID:');
-            const remarks = prompt('Enter remarks (optional):');
-            
+           const remarks = prompt('Enter remarks (optional):');
+
             if (!teamLeadId) {
                 showNotification('Team Lead ID is required.', 'error');
                 return;
             }
-            
+
             fetch(`/team-lead/leads/${id}/forward`, {
                 method: 'POST',
                 headers: {
@@ -1665,9 +1571,9 @@
         function setAuthorized(id) {
             const lead = leadsData.find(lead => lead.id === id);
             if (!lead) return;
-            
+
             const remarks = prompt('Enter remarks (optional):');
-            
+
             fetch(`/team-lead/leads/${id}/authorize`, {
                 method: 'POST',
                 headers: {
@@ -1700,10 +1606,10 @@
         function setFutureLead(id) {
             const lead = leadsData.find(lead => lead.id === id);
             if (!lead) return;
-            
+
             const remarks = prompt('Enter remarks (optional):');
             const expectedMonth = prompt('Enter expected month (YYYY-MM, optional):');
-            
+
             fetch(`/team-lead/leads/${id}/future`, {
                 method: 'POST',
                 headers: {
@@ -1735,75 +1641,179 @@
         }
 
         // Approve lead
-        function approveLead(id, forwardToOperations) {
-            const lead = leadsData.find(lead => lead.id === id);
-            if (!lead) return;
-            
-            const remarks = prompt('Enter remarks (optional):');
-            
-            fetch(`/team-lead/leads/${id}/approve`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-                },
-                body: JSON.stringify({
-                    remarks: remarks || undefined,
-                    forward_to_operations: forwardToOperations
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    showNotification(data.message, 'success');
-                    lead.status = forwardToOperations ? 'login' : 'approved';
-                    if (remarks) lead.notes = remarks;
-                    fetchLeads();
-                    closeModal('leadDetailModal');
-                } else {
-                    showNotification(data.message, 'error');
-                }
-            })
-            .catch(error => {
-                showNotification('Error approving lead', 'error');
-                console.error(error);
-            });
-        }
+        // function approveLead(id, forwardToOperations) {
+        //     const lead = leadsData.find(lead => lead.id === id);
+        //     if (!lead) return;
+
+        //     const remarks = prompt('Enter remarks (optional):');
+
+        //     fetch(`/team-lead/leads/${id}/approve`, {
+        //         method: 'POST',
+        //         headers: {
+        //             'Content-Type': 'application/json',
+        //             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+        //         },
+        //         body: JSON.stringify({
+        //             remarks: remarks || undefined,
+        //             forward_to_operations: forwardToOperations
+        //         })
+        //     })
+        //     .then(response => response.json())
+        //     .then(data => {
+        //         if (data.status === 'success') {
+        //             showNotification(data.message, 'success');
+        //             lead.status = forwardToOperations ? 'login' : 'approved';
+        //             if (remarks) lead.notes = remarks;
+        //             fetchLeads();
+        //             closeModal('leadDetailModal');
+        //         } else {
+        //             showNotification(data.message, 'error');
+        //         }
+        //     })
+        //     .catch(error => {
+        //         showNotification('Error approving lead', 'error');
+        //         console.error(error);
+        //     });
+        // }
 
         // Reject lead
-        function rejectLead(id) {
-            const lead = leadsData.find(lead => lead.id === id);
-            if (!lead) return;
-            
-            const remarks = prompt('Enter remarks (optional):');
-            
-            fetch(`/team-lead/leads/${id}/reject`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-                },
-                body: JSON.stringify({
-                    remarks: remarks || undefined
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    showNotification(data.message, 'success');
-                    lead.status = 'rejected';
-                    if (remarks) lead.notes = remarks;
-                    fetchLeads();
-                    closeModal('leadDetailModal');
-                } else {
-                    showNotification(data.message, 'error');
-                }
-            })
-            .catch(error => {
-                showNotification('Error rejecting lead', 'error');
-                console.error(error);
-            });
+    function rejectLead(id) {
+    const lead = leadsData.find(lead => lead.id === id);
+    if (!lead) return;
+
+    let remarks = '';
+
+    while (!remarks) {
+        remarks = prompt('Enter rejection reason:');
+        if (remarks === null) return; // Cancelled
+        if (!remarks.trim()) {
+            alert("Rejection reason is required.");
         }
+    }
+
+    fetch(`/team-lead/leads/${id}/reject`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+        },
+        body: JSON.stringify({ remarks })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            showNotification(data.message, 'success');
+            lead.status = 'rejected';
+            lead.reason = remarks;
+
+            // ✅ Show rejection reason in modal
+            document.getElementById('modalLeadReason').textContent = remarks;
+            document.getElementById('rejectionReasonSection').style.display = 'block';
+
+            fetchLeads(); // refresh list
+            closeModal('leadDetailModal'); // optional
+        } else {
+            showNotification(data.message, 'error');
+        }
+    })
+    .catch(error => {
+        showNotification('Error rejecting lead', 'error');
+        console.error(error);
+    });
+}
+
+
+//forward to admin
+function forwardToAdmin(leadId) {
+    let remarks = prompt("Enter remarks for forwarding to Admin:");
+    if (remarks === null) return; // Cancelled
+    remarks = remarks.trim();
+    if (!remarks) {
+        alert("Remarks are required to forward the lead.");
+        return;
+    }
+
+    fetch(`/team-lead/leads/${leadId}/forward-admin`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+        },
+        body: JSON.stringify({ remarks })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert('Lead forwarded to Admin.');
+            location.reload(); // Optional
+        } else {
+            alert(data.message || 'Something went wrong.');
+        }
+    });
+}
+
+
+//forward to operation
+let selectedLeadId = null;
+
+function forwardToOperations(leadId) {
+    selectedLeadId = leadId;
+
+    fetch('/team-lead/operations-users')
+        .then(res => res.json())
+        .then(users => {
+            const dropdown = document.getElementById('operation-user');
+            dropdown.innerHTML = ''; // Clear previous options
+
+            // Add default option
+            const defaultOption = document.createElement('option');
+            defaultOption.textContent = 'Select Operation User';
+            defaultOption.disabled = true;
+            defaultOption.selected = true;
+            dropdown.appendChild(defaultOption);
+
+            // Add operation users dynamically
+            users.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user.id;
+                option.textContent = user.name;
+                dropdown.appendChild(option);
+            });
+
+            const modal = new bootstrap.Modal(document.getElementById('forwardOperationsModal'));
+            modal.show();
+        });
+}
+
+
+
+function submitForwardToOperations() {
+    const receiverId = document.getElementById('operation-user').value;
+    const remarks = document.getElementById('operation-remarks').value;
+
+    if (!receiverId ) {
+        alert('Please fill all fields.');
+        return;
+    }
+
+    fetch(`/team-lead/leads/${selectedLeadId}/forward-operations`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+        },
+        body: JSON.stringify({ receiver_user_id: receiverId, remarks })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert('Lead forwarded to Operation team.');
+            location.reload();
+        } else {
+            alert(data.message || 'Something went wrong.');
+        }
+    });
+}
 
         // Fetch updated leads
         function fetchLeads() {
@@ -1821,12 +1831,12 @@
                 const newTableBody = doc.querySelector('#leadsTableBody').innerHTML;
                 const newResultsCount = doc.querySelector('#resultsCount').textContent;
                 const newEmptyState = doc.querySelector('#emptyState').style.display;
-                
+
                 document.getElementById('leadsTableBody').innerHTML = newTableBody;
                 document.getElementById('resultsCount').textContent = newResultsCount;
                 document.querySelector('.table-wrapper').style.display = newEmptyState === 'flex' ? 'none' : 'block';
                 document.getElementById('emptyState').style.display = newEmptyState;
-                
+
                 // Update leadsData
                 fetch('{{ route('team_lead.leads.index') }}?data_only=true')
                     .then(response => response.json())
@@ -1882,7 +1892,7 @@
                 `;
                 document.body.appendChild(container);
             }
-            
+
             const notification = document.createElement('div');
             notification.className = `notification ${type}`;
             notification.style.cssText = `
@@ -1899,9 +1909,9 @@
                 max-width: 400px;
                 animation: slideInRight 0.3s ease-out;
             `;
-            
+
             const icon = type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle';
-            
+
             notification.innerHTML = `
                 <i class="fas fa-${icon}" style="font-size: 20px;"></i>
                 <div style="flex: 1;">
@@ -1912,16 +1922,16 @@
                     <i class="fas fa-times"></i>
                 </button>
             `;
-            
+
             container.appendChild(notification);
-            
+
             notification.querySelector('button').addEventListener('click', () => {
                 notification.style.opacity = '0';
                 setTimeout(() => {
                     if (notification.parentNode) container.removeChild(notification);
                 }, 300);
             });
-            
+
             setTimeout(() => {
                 if (notification.parentNode) {
                     notification.style.opacity = '0';
@@ -1931,6 +1941,17 @@
                 }
             }, 5000);
         }
+
+        function submitFilters() {
+    document.getElementById('filterForm').submit();
+}
+
+function resetFilters() {
+    const url = new URL(window.location.href);
+    url.search = '';
+    window.location.href = url.toString();
+}
+
     </script>
 </body>
 </html>

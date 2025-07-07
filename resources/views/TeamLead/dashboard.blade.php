@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+<meta name="lead-report-url" content="{{ route('team_lead.report') }}">
+
     <title>Lead Reports - Lead Management System</title>
     <link rel="icon" type="image/png" href="{{ asset('logo.jpg') }}">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -710,6 +713,105 @@
             opacity: 0.5;
             cursor: not-allowed;
         }
+        .chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px;
+    font-size: 0.9rem;
+    justify-content: center;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.legend-color {
+    width: 12px;
+    height: 12px;
+    display: inline-block;
+    border-radius: 2px;
+}
+
+.team-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    padding: 20px;
+    transition: 0.3s ease;
+}
+
+.team-card:hover {
+    transform: translateY(-4px);
+}
+
+.team-card-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.team-avatar {
+    background-color: #007bff;
+    color: white;
+    width: 50px;
+    height: 50px;
+    font-weight: bold;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    margin-right: 15px;
+}
+
+.team-info .team-name {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.team-info .team-role {
+    font-size: 14px;
+    color: #888;
+}
+
+.team-stats {
+    display: flex;
+    justify-content: space-between;
+    margin: 15px 0;
+}
+
+.team-stat-value {
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.team-progress .progress-bar {
+    background-color: #f1f1f1;
+    border-radius: 10px;
+    height: 10px;
+    overflow: hidden;
+}
+
+.team-progress .progress-fill {
+    background-color: #28a745;
+    height: 100%;
+    width: 0;
+    border-radius: 10px;
+}
+.filter-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+    margin-left:200px;
+    align-items: center;
+    flex-wrap: wrap; /* handles mobile wrapping */
+}
+
+
+
 
         /* Animations */
         @keyframes fadeInDown {
@@ -778,33 +880,33 @@
             .main-content {
                 margin-left: 0;
             }
-            
+
             .dashboard-container {
                 padding: 20px;
             }
-            
+
             .stats-grid {
                 grid-template-columns: 1fr;
             }
-            
+
             .filters-content {
                 grid-template-columns: 1fr;
             }
-            
+
             .team-performance-grid {
                 grid-template-columns: 1fr;
             }
-            
+
             .leads-table-header {
                 flex-direction: column;
                 align-items: flex-start;
                 gap: 16px;
             }
-            
+
             .leads-table-actions {
                 width: 100%;
             }
-            
+
             .leads-search input {
                 width: 100%;
             }
@@ -813,919 +915,518 @@
 </head>
 <body>
     @include('TeamLead.Components.sidebar')
-    
+
     <div class="main-content">
         @include('TeamLead.Components.header', ['title' => 'Lead Reports', 'subtitle' => 'Analyze lead performance and conversion metrics'])
-        
+
         <div class="dashboard-container">
             <!-- Stats Overview -->
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-header">
-                        <div class="stat-icon">
-                            <i class="fas fa-chart-line"></i>
-                        </div>
-                        <div class="stat-trend up">
-                            <i class="fas fa-arrow-up"></i>
-                            <span>12.5%</span>
-                        </div>
-                    </div>
-                    <div class="stat-value">68.7%</div>
-                    <div class="stat-label">Overall Conversion Rate</div>
-                </div>
-                
-                <div class="stat-card blue">
-                    <div class="stat-header">
-                        <div class="stat-icon">
-                            <i class="fas fa-users"></i>
-                        </div>
-                        <div class="stat-trend up">
-                            <i class="fas fa-arrow-up"></i>
-                            <span>8.3%</span>
-                        </div>
-                    </div>
-                    <div class="stat-value">1,284</div>
-                    <div class="stat-label">Total Leads</div>
-                </div>
-                
-                <div class="stat-card green">
-                    <div class="stat-header">
-                        <div class="stat-icon">
-                            <i class="fas fa-check-circle"></i>
-                        </div>
-                        <div class="stat-trend up">
-                            <i class="fas fa-arrow-up"></i>
-                            <span>15.2%</span>
-                        </div>
-                    </div>
-                    <div class="stat-value">882</div>
-                    <div class="stat-label">Converted Leads</div>
-                </div>
-                
-                <div class="stat-card red">
-                    <div class="stat-header">
-                        <div class="stat-icon">
-                            <i class="fas fa-rupee-sign"></i>
-                        </div>
-                        <div class="stat-trend up">
-                            <i class="fas fa-arrow-up"></i>
-                            <span>18.7%</span>
-                        </div>
-                    </div>
-                    <div class="stat-value">₹42.8L</div>
-                    <div class="stat-label">Total Lead Value</div>
-                </div>
+           <div class="stats-grid">
+    <!-- Total Leads -->
+    <div class="stat-card blue">
+        <div class="stat-header">
+            <div class="stat-icon"><i class="fas fa-user-friends"></i></div>
+        </div>
+        <div class="stat-value">{{ $stats['total_leads'] }}</div>
+        <div class="stat-label">Total Leads</div>
+    </div>
+
+    <!-- Total Lead Value -->
+    <div class="stat-card red">
+        <div class="stat-header">
+            <div class="stat-icon"><i class="fas fa-rupee-sign"></i></div>
+        </div>
+        <div class="stat-value">₹{{ number_format($stats['total_lead_value']) }}</div>
+        <div class="stat-label">Total Lead Value</div>
+    </div>
+
+    <!-- Authorized Leads -->
+    <div class="stat-card green">
+        <div class="stat-header">
+            <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+        </div>
+        <div class="stat-value">{{ $stats['authorized_leads'] }}</div>
+        <div class="stat-label">Authorized Leads</div>
+    </div>
+
+    <!-- Authorized Lead Value -->
+    <div class="stat-card green">
+        <div class="stat-header">
+            <div class="stat-icon"><i class="fas fa-money-bill-wave"></i></div>
+        </div>
+        <div class="stat-value">₹{{ number_format($stats['authorized_lead_value']) }}</div>
+        <div class="stat-label">Authorized Lead Value</div>
+    </div>
+
+    <!-- Login Leads -->
+    <div class="stat-card purple">
+        <div class="stat-header">
+            <div class="stat-icon"><i class="fas fa-sign-in-alt"></i></div>
+        </div>
+        <div class="stat-value">{{ $stats['login_leads'] }}</div>
+        <div class="stat-label">Login Leads</div>
+    </div>
+
+    <!-- Login Lead Value -->
+    <div class="stat-card purple">
+        <div class="stat-header">
+            <div class="stat-icon"><i class="fas fa-wallet"></i></div>
+        </div>
+        <div class="stat-value">₹{{ number_format($stats['login_lead_value']) }}</div>
+        <div class="stat-label">Login Lead Value</div>
+    </div>
+
+    <!-- Approved Leads -->
+    <div class="stat-card teal">
+        <div class="stat-header">
+            <div class="stat-icon"><i class="fas fa-thumbs-up"></i></div>
+        </div>
+        <div class="stat-value">{{ $stats['approved_leads'] }}</div>
+        <div class="stat-label">Approved Leads</div>
+    </div>
+
+    <!-- Approved Lead Value -->
+    <div class="stat-card teal">
+        <div class="stat-header">
+            <div class="stat-icon"><i class="fas fa-coins"></i></div>
+        </div>
+        <div class="stat-value">₹{{ number_format($stats['approved_lead_value']) }}</div>
+        <div class="stat-label">Approved Lead Value</div>
+    </div>
+
+    <!-- Disbursed Leads -->
+    <div class="stat-card yellow">
+        <div class="stat-header">
+            <div class="stat-icon"><i class="fas fa-hand-holding-usd"></i></div>
+        </div>
+        <div class="stat-value">{{ $stats['disbursed_leads'] }}</div>
+        <div class="stat-label">Disbursed Leads</div>
+    </div>
+
+    <!-- Disbursed Lead Value -->
+    <div class="stat-card yellow">
+        <div class="stat-header">
+            <div class="stat-icon"><i class="fas fa-piggy-bank"></i></div>
+        </div>
+        <div class="stat-value">₹{{ number_format($stats['disbursed_lead_value']) }}</div>
+        <div class="stat-label">Disbursed Lead Value</div>
+    </div>
+
+    <!-- Rejected Leads -->
+    <div class="stat-card dark">
+        <div class="stat-header">
+            <div class="stat-icon"><i class="fas fa-times-circle"></i></div>
+        </div>
+        <div class="stat-value">{{ $stats['rejected_leads'] }}</div>
+        <div class="stat-label">Rejected Leads</div>
+    </div>
+
+    <!-- Rejected Lead Value -->
+    <div class="stat-card dark">
+        <div class="stat-header">
+            <div class="stat-icon"><i class="fas fa-ban"></i></div>
+        </div>
+        <div class="stat-value">₹{{ number_format($stats['rejected_lead_value']) }}</div>
+        <div class="stat-label">Rejected Lead Value</div>
+    </div>
+
+    <!-- Deleted (Soft-Deleted) Employees -->
+    <div class="stat-card grey">
+        <div class="stat-header">
+            <div class="stat-icon"><i class="fas fa-user"></i></div>
+        </div>
+        <div class="stat-value">{{ $stats['active_employees'] }}</div>
+        <div class="stat-label">Active Employees</div>
+    </div>
+</div>
+
+
+        <!-- Filters Section -->
+<form method="GET" action="{{ route('team_lead.report') }}" id="filterForm">
+
+<div class="filters-section">
+    <div class="filters-header">
+        <h3 class="filters-title">Filter Reports</h3>
+        <button class="filters-toggle" type="button" id="toggleFilters">
+            <span>Advanced Filters</span>
+            <i class="fas fa-chevron-down"></i>
+        </button>
+    </div>
+
+    <div class="filters-content" id="filtersContent">
+        {{-- Date Range --}}
+        <div class="filter-group">
+            <label class="filter-label">Date Range</label>
+            <select class="filter-select" id="dateRangeFilter" name="date_range">
+                <option value="7">Last 7 Days</option>
+                <option value="30" selected>Last 30 Days</option>
+                <option value="90">Last 90 Days</option>
+                <option value="180">Last 6 Months</option>
+                <option value="365">Last Year</option>
+                <option value="custom">Custom Range</option>
+            </select>
+        </div>
+
+        {{-- Team Lead --}}
+        <div class="filter-group">
+            <label class="filter-label">Team Lead</label>
+            <select class="filter-select" id="teamLeadFilter" name="team_lead_id">
+                <option value="">All Team Leads</option>
+                @foreach ($teamLeads as $lead)
+                    <option value="{{ $lead->id }}">{{ $lead->name }}</option>
+                @endforeach
+            </select>
+        </div>
+
+        {{-- Employee --}}
+        <div class="filter-group">
+            <label class="filter-label">Employee</label>
+            <select class="filter-select" id="employeeFilter" name="employee_id">
+                <option value="">All Employees</option>
+                @foreach ($employees as $emp)
+                    <option value="{{ $emp->id }}">{{ $emp->name }}</option>
+                @endforeach
+            </select>
+        </div>
+
+        {{-- Status --}}
+        <div class="filter-group">
+            <label class="filter-label">Status</label>
+            <select class="filter-select" id="statusFilter" name="status">
+                <option value="">All Statuses</option>
+                @foreach ($statuses as $status)
+                    <option value="{{ $status }}">{{ ucfirst($status) }}</option>
+                @endforeach
+            </select>
+        </div>
+
+        {{-- Company --}}
+        <div class="filter-group">
+            <label class="filter-label">Company</label>
+            <select class="filter-select" id="companyFilter" name="company">
+                <option value="">All Companies</option>
+                @foreach ($companies as $company)
+                    <option value="{{ $company }}">{{ $company }}</option>
+                @endforeach
+            </select>
+        </div>
+
+        {{-- State --}}
+        <div class="filter-group">
+            <label class="filter-label">State</label>
+            <select class="filter-select" id="stateFilter" name="state">
+                <option value="">All States</option>
+                @foreach ($states as $state)
+                    <option value="{{ $state }}">{{ $state }}</option>
+                @endforeach
+            </select>
+        </div>
+
+        {{-- District --}}
+        <div class="filter-group">
+            <label class="filter-label">District</label>
+            <select class="filter-select" id="districtFilter" name="district">
+                <option value="">All Districts</option>
+                @foreach ($districts as $district)
+                    <option value="{{ $district }}">{{ $district }}</option>
+                @endforeach
+            </select>
+        </div>
+
+        {{-- City --}}
+        <div class="filter-group">
+            <label class="filter-label">City</label>
+            <select class="filter-select" id="cityFilter" name="city">
+                <option value="">All Cities</option>
+                @foreach ($cities as $city)
+                    <option value="{{ $city }}">{{ $city }}</option>
+                @endforeach
+            </select>
+        </div>
+
+        {{-- Bank --}}
+        <div class="filter-group">
+            <label class="filter-label">Bank</label>
+            <select class="filter-select" id="bankFilter" name="bank">
+                <option value="">All Banks</option>
+                @foreach ($banks as $bank)
+                    <option value="{{ $bank }}">{{ $bank }}</option>
+                @endforeach
+            </select>
+        </div>
+
+        {{-- Lead Amount --}}
+        <div class="filter-group">
+            <label class="filter-label">Lead Amount</label>
+            <div style="display: flex; gap: 8px;">
+                <input type="number" class="filter-input" name="min_amount" id="minAmountFilter" placeholder="Min">
+                <input type="number" class="filter-input" name="max_amount" id="maxAmountFilter" placeholder="Max">
             </div>
-            
-            <!-- Filters Section -->
-            <div class="filters-section">
-                <div class="filters-header">
-                    <h3 class="filters-title">Filter Reports</h3>
-                    <button class="filters-toggle" id="toggleFilters">
-                        <span>Advanced Filters</span>
-                        <i class="fas fa-chevron-down"></i>
-                    </button>
-                </div>
-                <div class="filters-content" id="filtersContent">
-                    <div class="filter-group">
-                        <label class="filter-label">Date Range</label>
-                        <select class="filter-select" id="dateRangeFilter">
-                            <option value="7">Last 7 Days</option>
-                            <option value="30" selected>Last 30 Days</option>
-                            <option value="90">Last 90 Days</option>
-                            <option value="180">Last 6 Months</option>
-                            <option value="365">Last Year</option>
-                            <option value="custom">Custom Range</option>
-                        </select>
-                    </div>
-                    
-                    <div class="filter-group">
-                        <label class="filter-label">Team Lead</label>
-                        <select class="filter-select" id="teamLeadFilter">
-                            <option value="">All Team Leads</option>
-                            <option value="1">Rajesh Kumar</option>
-                            <option value="2">Priya Sharma</option>
-                            <option value="3">Vikram Singh</option>
-                            <option value="4">Neha Patel</option>
-                        </select>
-                    </div>
-                    
-                    <div class="filter-group">
-                        <label class="filter-label">Status</label>
-                        <select class="filter-select" id="statusFilter">
-                            <option value="">All Statuses</option>
-                            <option value="new">New</option>
-                            <option value="contacted">Contacted</option>
-                            <option value="qualified">Qualified</option>
-                            <option value="converted">Converted</option>
-                            <option value="closed">Closed</option>
-                        </select>
-                    </div>
-                    
-                    <div class="filter-group">
-                        <label class="filter-label">Location</label>
-                        <select class="filter-select" id="locationFilter">
-                            <option value="">All Locations</option>
-                            <option value="Mumbai">Mumbai</option>
-                            <option value="Delhi">Delhi</option>
-                            <option value="Bangalore">Bangalore</option>
-                            <option value="Hyderabad">Hyderabad</option>
-                            <option value="Chennai">Chennai</option>
-                            <option value="Kolkata">Kolkata</option>
-                        </select>
-                    </div>
-                    
-                    <div class="filter-group">
-                        <label class="filter-label">Lead Amount</label>
-                        <div style="display: flex; gap: 8px;">
-                            <input type="number" class="filter-input" id="minAmountFilter" placeholder="Min">
-                            <input type="number" class="filter-input" id="maxAmountFilter" placeholder="Max">
-                        </div>
-                    </div>
-                    
-                    <div class="filter-actions">
-                        <button class="btn-filter" id="applyFilters">
-                            <i class="fas fa-filter"></i>
-                            Apply Filters
-                        </button>
-                        <button class="btn-reset" id="resetFilters">
-                            <i class="fas fa-undo"></i>
-                            Reset
-                        </button>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Charts Section -->
-            <div class="dashboard-grid">
-                <div class="chart-card">
-                    <div class="card-header">
-                        <h3 class="card-title">Lead Conversion Rate</h3>
-                        <button class="card-action" id="downloadConversionChart">
-                            <i class="fas fa-download"></i>
-                            Export
-                        </button>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="conversionRateChart"></canvas>
-                    </div>
-                </div>
-                
-                <div class="chart-card">
-                    <div class="card-header">
-                        <h3 class="card-title">Lead Status Distribution</h3>
-                        <button class="card-action" id="downloadStatusChart">
-                            <i class="fas fa-download"></i>
-                            Export
-                        </button>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="leadStatusChart"></canvas>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Team Performance Section -->
-            <div class="team-performance-section">
-                <div class="team-performance-header">
-                    <h3 class="team-performance-title">Team Performance</h3>
-                    <div class="team-performance-tabs">
-                        <div class="team-tab active" data-tab="conversion">Conversion Rate</div>
-                        <div class="team-tab" data-tab="volume">Lead Volume</div>
-                        <div class="team-tab" data-tab="value">Lead Value</div>
-                    </div>
-                </div>
-                
-                <div class="team-performance-grid">
-                    <!-- Team Card 1 -->
-                    <div class="team-card">
-                        <div class="team-card-header">
-                            <div class="team-avatar">RK</div>
-                            <div class="team-info">
-                                <div class="team-name">Rajesh Kumar</div>
-                                <div class="team-role">Senior Team Lead</div>
-                            </div>
-                        </div>
-                        
-                        <div class="team-stats">
-                            <div class="team-stat">
-                                <div class="team-stat-value">78.2%</div>
-                                <div class="team-stat-label">Conversion Rate</div>
-                            </div>
-                            <div class="team-stat">
-                                <div class="team-stat-value">342</div>
-                                <div class="team-stat-label">Total Leads</div>
-                            </div>
-                        </div>
-                        
-                        <div class="team-progress">
-                            <div class="progress-header">
-                                <div class="progress-label">Monthly Target</div>
-                                <div class="progress-value">78%</div>
-                            </div>
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="width: 78%;"></div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Team Card 2 -->
-                    <div class="team-card">
-                        <div class="team-card-header">
-                            <div class="team-avatar">PS</div>
-                            <div class="team-info">
-                                <div class="team-name">Priya Sharma</div>
-                                <div class="team-role">Team Lead</div>
-                            </div>
-                        </div>
-                        
-                        <div class="team-stats">
-                            <div class="team-stat">
-                                <div class="team-stat-value">72.5%</div>
-                                <div class="team-stat-label">Conversion Rate</div>
-                            </div>
-                            <div class="team-stat">
-                                <div class="team-stat-value">298</div>
-                                <div class="team-stat-label">Total Leads</div>
-                            </div>
-                        </div>
-                        
-                        <div class="team-progress">
-                            <div class="progress-header">
-                                <div class="progress-label">Monthly Target</div>
-                                <div class="progress-value">65%</div>
-                            </div>
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="width: 65%;"></div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Team Card 3 -->
-                    <div class="team-card">
-                        <div class="team-card-header">
-                            <div class="team-avatar">VS</div>
-                            <div class="team-info">
-                                <div class="team-name">Vikram Singh</div>
-                                <div class="team-role">Team Lead</div>
-                            </div>
-                        </div>
-                        
-                        <div class="team-stats">
-                            <div class="team-stat">
-                                <div class="team-stat-value">68.9%</div>
-                                <div class="team-stat-label">Conversion Rate</div>
-                            </div>
-                            <div class="team-stat">
-                                <div class="team-stat-value">276</div>
-                                <div class="team-stat-label">Total Leads</div>
-                            </div>
-                        </div>
-                        
-                        <div class="team-progress">
-                            <div class="progress-header">
-                                <div class="progress-label">Monthly Target</div>
-                                <div class="progress-value">82%</div>
-                            </div>
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="width: 82%;"></div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Team Card 4 -->
-                    <div class="team-card">
-                        <div class="team-card-header">
-                            <div class="team-avatar">NP</div>
-                            <div class="team-info">
-                                <div class="team-name">Neha Patel</div>
-                                <div class="team-role">Team Lead</div>
-                            </div>
-                        </div>
-                        
-                        <div class="team-stats">
-                            <div class="team-stat">
-                                <div class="team-stat-value">64.3%</div>
-                                <div class="team-stat-label">Conversion Rate</div>
-                            </div>
-                            <div class="team-stat">
-                                <div class="team-stat-value">368</div>
-                                <div class="team-stat-label">Total Leads</div>
-                            </div>
-                        </div>
-                        
-                        <div class="team-progress">
-                            <div class="progress-header">
-                                <div class="progress-label">Monthly Target</div>
-                                <div class="progress-value">71%</div>
-                            </div>
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="width: 71%;"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Leads Table Section -->
-            <div class="leads-table-section">
-                <div class="leads-table-header">
-                    <h3 class="leads-table-title">Lead Details</h3>
-                    <div class="leads-table-actions">
-                        <div class="leads-search">
-                            <i class="fas fa-search"></i>
-                            <input type="text" placeholder="Search leads..." id="leadsSearch">
-                        </div>
-                        <button class="btn-filter" id="exportLeads">
-                            <i class="fas fa-file-export"></i>
-                            Export
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="table-container">
-                    <table class="leads-table">
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Company</th>
-                                <th>Location</th>
-                                <th>Lead Amount</th>
-                                <th>Success %</th>
-                                <th>Expected Month</th>
-                                <th>Status</th>
-                                <th>Team Lead</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>Amit Sharma</td>
-                                <td>Tech Solutions Ltd</td>
-                                <td>Mumbai</td>
-                                <td>₹4,50,000</td>
-                                <td>85%</td>
-                                <td>June 2023</td>
-                                <td><span class="lead-status status-converted">Converted</span></td>
-                                <td>Rajesh Kumar</td>
-                                <td>
-                                    <div class="lead-actions">
-                                        <button class="btn-icon btn-view"><i class="fas fa-eye"></i></button>
-                                        <button class="btn-icon"><i class="fas fa-edit"></i></button>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>Priya Patel</td>
-                                <td>Global Enterprises</td>
-                                <td>Delhi</td>
-                                <td>₹3,25,000</td>
-                                <td>72%</td>
-                                <td>July 2023</td>
-                                <td><span class="lead-status status-qualified">Qualified</span></td>
-                                <td>Priya Sharma</td>
-                                <td>
-                                    <div class="lead-actions">
-                                        <button class="btn-icon btn-view"><i class="fas fa-eye"></i></button>
-                                        <button class="btn-icon"><i class="fas fa-edit"></i></button>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>Rahul Verma</td>
-                                <td>Innovate Systems</td>
-                                <td>Bangalore</td>
-                                <td>₹5,80,000</td>
-                                <td>65%</td>
-                                <td>August 2023</td>
-                                <td><span class="lead-status status-contacted">Contacted</span></td>
-                                <td>Vikram Singh</td>
-                                <td>
-                                    <div class="lead-actions">
-                                        <button class="btn-icon btn-view"><i class="fas fa-eye"></i></button>
-                                        <button class="btn-icon"><i class="fas fa-edit"></i></button>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>Neha Gupta</td>
-                                <td>Sunrise Industries</td>
-                                <td>Chennai</td>
-                                <td>₹2,75,000</td>
-                                <td>90%</td>
-                                <td>June 2023</td>
-                                <td><span class="lead-status status-converted">Converted</span></td>
-                                <td>Neha Patel</td>
-                                <td>
-                                    <div class="lead-actions">
-                                        <button class="btn-icon btn-view"><i class="fas fa-eye"></i></button>
-                                        <button class="btn-icon"><i class="fas fa-edit"></i></button>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>Vikram Malhotra</td>
-                                <td>Prime Solutions</td>
-                                <td>Hyderabad</td>
-                                <td>₹6,20,000</td>
-                                <td>78%</td>
-                                <td>July 2023</td>
-                                <td><span class="lead-status status-qualified">Qualified</span></td>
-                                <td>Rajesh Kumar</td>
-                                <td>
-                                    <div class="lead-actions">
-                                        <button class="btn-icon btn-view"><i class="fas fa-eye"></i></button>
-                                        <button class="btn-icon"><i class="fas fa-edit"></i></button>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>Ananya Singh</td>
-                                <td>Future Tech</td>
-                                <td>Pune</td>
-                                <td>₹3,90,000</td>
-                                <td>45%</td>
-                                <td>September 2023</td>
-                                <td><span class="lead-status status-new">New</span></td>
-                                <td>Priya Sharma</td>
-                                <td>
-                                    <div class="lead-actions">
-                                        <button class="btn-icon btn-view"><i class="fas fa-eye"></i></button>
-                                        <button class="btn-icon"><i class="fas fa-edit"></i></button>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>Rajat Kapoor</td>
-                                <td>Stellar Corp</td>
-                                <td>Kolkata</td>
-                                <td>₹5,40,000</td>
-                                <td>25%</td>
-                                <td>October 2023</td>
-                                <td><span class="lead-status status-closed">Closed</span></td>
-                                <td>Vikram Singh</td>
-                                <td>
-                                    <div class="lead-actions">
-                                        <button class="btn-icon btn-view"><i class="fas fa-eye"></i></button>
-                                        <button class="btn-icon"><i class="fas fa-edit"></i></button>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                
-                <div class="pagination">
-                    <div class="pagination-info">
-                        Showing <span>1</span> to <span>7</span> of <span>42</span> entries
-                    </div>
-                    <div class="pagination-controls">
-                        <button class="pagination-button disabled"><i class="fas fa-chevron-left"></i></button>
-                        <button class="pagination-button active">1</button>
-                        <button class="pagination-button">2</button>
-                        <button class="pagination-button">3</button>
-                        <button class="pagination-button">4</button>
-                        <button class="pagination-button">5</button>
-                        <button class="pagination-button"><i class="fas fa-chevron-right"></i></button>
-                    </div>
-                </div>
-            </div>
+        </div>
+
+        {{-- Filter Buttons --}}
+        <div class="filter-actions">
+            <button class="btn-filter" type="submit">
+                <i class="fas fa-filter"></i> Apply Filters
+            </button>
+            <button type="button" class="btn-reset" id="resetFilters">
+                <i class="fas fa-undo"></i> Reset
+            </button>
+        </div>
+    </div>
+</div>
+</form>
+
+
+
+
+    <!-- Charts Section -->
+<div class="dashboard-grid">
+    <!-- Leads Per Employee Chart -->
+    <div class="chart-card">
+        <div class="card-header">
+            <h3 class="card-title"><i class="fas fa-users"></i> Leads per Employee</h3>
+        </div>
+        <div class="chart-container">
+            <canvas id="leadsPerEmployeeChart" width="400" height="250"></canvas>
         </div>
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Toggle filters
-            const toggleFiltersBtn = document.getElementById('toggleFilters');
-            const filtersContent = document.getElementById('filtersContent');
-            
-            toggleFiltersBtn.addEventListener('click', function() {
+    <!-- Lead Status Distribution Chart -->
+    <div class="chart-card">
+        <div class="card-header">
+            <h3 class="card-title"><i class="fas fa-chart-bar"></i> Lead Status Distribution</h3>
+        </div>
+        <div class="chart-container">
+            <canvas id="leadStatusChart" width="400" height="250"></canvas>
+        </div>
+    </div>
+</div>
+
+
+
+            <!-- Team Performance Section -->
+  <div class="team-performance-section">
+    <div class="team-performance-header">
+        <h3 class="team-performance-title">Team Performance</h3>
+    </div>
+
+    <div class="team-performance-grid">
+        @forelse ($teamPerformance as $emp)
+            @php
+                $initials = strtoupper(substr($emp['name'], 0, 1)) .
+                            strtoupper(substr(explode(' ', $emp['name'])[1] ?? '', 0, 1));
+            @endphp
+
+            <div class="team-card">
+                <div class="team-card-header">
+                    <div class="team-avatar">{{ $initials }}</div>
+                    <div class="team-info">
+                        <div class="team-name">{{ $emp['name'] }}</div>
+                        <div class="team-role">Employee</div>
+                    </div>
+                </div>
+
+                <div class="team-stats">
+                    <div class="team-stat">
+                        <div class="team-stat-value">{{ $emp['conversion_rate'] }}%</div>
+                        <div class="team-stat-label">Conversion Rate</div>
+                    </div>
+                    <div class="team-stat">
+                        <div class="team-stat-value">{{ $emp['total_leads'] }}</div>
+                        <div class="team-stat-label">Total Leads</div>
+                    </div>
+                </div>
+
+                <div class="team-progress">
+                    <div class="progress-header">
+                        <div class="progress-label">Monthly Target</div>
+                        <div class="progress-value">{{ $emp['target_percentage'] }}%</div>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: {{ $emp['target_percentage'] }}%;"></div>
+                    </div>
+                </div>
+            </div>
+        @empty
+            <p>No employees found under you.</p>
+        @endforelse
+    </div>
+</div>
+
+
+
+
+
+<!-- Leads Table Section -->
+<div class="leads-table-section">
+    <div class="leads-table-header">
+        <h3 class="leads-table-title">Team Leads - Assigned Leads</h3>
+        <div class="leads-table-actions">
+            <div class="leads-search">
+                <i class="fas fa-search"></i>
+                <input type="text" placeholder="Search leads..." id="leadsSearch">
+            </div>
+            <button class="btn-filter" id="exportLeads">
+                <i class="fas fa-file-export"></i>
+                Export
+            </button>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table class="leads-table">
+            <thead>
+                <tr>
+                    <th>Client Name</th>
+                    <th>Employee</th>
+                    <th>Company</th>
+                    <th>Location</th>
+                    <th>Lead Amount</th>
+                    <th>Success %</th>
+                    <th>Expected Month</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse ($leads as $lead)
+                    <tr>
+                        <td>{{ $lead->name }}</td>
+                        <td>{{ $lead->employee->name ?? 'Unknown' }}</td>
+                        <td>{{ $lead->company_name ?? 'N/A' }}</td>
+                        <td>{{ $lead->city ?? $lead->district ?? $lead->state ?? 'N/A' }}</td>
+                        <td>₹{{ number_format($lead->lead_amount) }}</td>
+                        <td>{{ $lead->success_percentage ?? '-' }}%</td>
+                        <td>
+                            {{ $lead->expected_month ? \Carbon\Carbon::parse($lead->expected_month)->format('F Y') : 'N/A' }}
+                        </td>
+                        <td>
+                            <span class="lead-status status-{{ strtolower($lead->status) }}">
+                                {{ ucfirst($lead->status) }}
+                            </span>
+                        </td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="8" class="text-center">No leads found.</td>
+                    </tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {{-- <div class="pagination">
+        <div class="pagination-info">
+            Showing <span>{{ $leads->firstItem() ?? 0 }}</span> to
+            <span>{{ $leads->lastItem() ?? 0 }}</span> of
+            <span>{{ $leads->total() }}</span> entries
+        </div>
+        <div class="pagination-controls">
+            {{ $leads->links('pagination::bootstrap-4') }}
+        </div>
+    </div>--}}
+</div>
+
+
+
+        </div>
+    </div>
+
+
+   <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const leadsPerEmployeeChartData = @json($leadsPerEmployee ?? []);
+        const leadStatusChartData = @json($statusCounts ?? []);
+        const empLabels = @json($leadsPerEmployee->pluck('employee'));
+        const empData = @json($leadsPerEmployee->pluck('count'));
+
+        // Chart: Leads per Employee
+        new Chart(document.getElementById('leadsPerEmployeeChart'), {
+            type: 'bar',
+            data: {
+                labels: empLabels,
+                datasets: [{
+                    label: 'Leads Assigned',
+                    data: empData,
+                    backgroundColor: '#2196F3'
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        // Chart: Lead Status
+        const statusLabels = @json($statusCounts->keys());
+        const statusData = @json($statusCounts->values());
+
+        new Chart(document.getElementById('leadStatusChart'), {
+            type: 'bar',
+            data: {
+                labels: statusLabels,
+                datasets: [{
+                    label: 'Lead Count',
+                    data: statusData,
+                    backgroundColor: '#4CAF50'
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        // Toggle Advanced Filters
+        const toggleFiltersBtn = document.getElementById('toggleFilters');
+        const filtersContent = document.getElementById('filtersContent');
+        if (toggleFiltersBtn && filtersContent) {
+            toggleFiltersBtn.addEventListener('click', function () {
                 const isExpanded = filtersContent.style.display === 'none' || filtersContent.style.display === '';
                 filtersContent.style.display = isExpanded ? 'grid' : 'none';
                 toggleFiltersBtn.querySelector('i').className = isExpanded ? 'fas fa-chevron-up' : 'fas fa-chevron-down';
             });
-            
-            // Team performance tabs
-            const teamTabs = document.querySelectorAll('.team-tab');
-            
-            teamTabs.forEach(tab => {
-                tab.addEventListener('click', function() {
-                    teamTabs.forEach(t => t.classList.remove('active'));
-                    this.classList.add('active');
-                    
-                    // In a real application, you would update the team performance data here
-                    const tabType = this.getAttribute('data-tab');
-                    updateTeamPerformance(tabType);
+        }
+
+        // Filter apply
+        const applyFiltersBtn = document.getElementById('applyFilters');
+        if (applyFiltersBtn) {
+            applyFiltersBtn.addEventListener('click', function () {
+                document.getElementById('filterForm').submit();
+            });
+        }
+
+     const resetFiltersBtn = document.getElementById('resetFilters');
+if (resetFiltersBtn) {
+    resetFiltersBtn.addEventListener('click', function () {
+        window.location.href = "{{ route('team_lead.dashboard') }}"; // or your actual route
+    });
+}
+
+
+        // Export Leads
+        const exportBtn = document.getElementById('exportLeads');
+        if (exportBtn) {
+            exportBtn.addEventListener("click", function () {
+                window.location.href = "{{ route('team_lead.leads.export') }}";
+            });
+        }
+
+        // Search Filter
+        const leadsSearch = document.getElementById('leadsSearch');
+        if (leadsSearch) {
+            leadsSearch.addEventListener('input', function () {
+                const value = this.value.toLowerCase();
+                document.querySelectorAll('.leads-table tbody tr').forEach(row => {
+                    const rowText = row.innerText.toLowerCase();
+                    row.style.display = rowText.includes(value) ? '' : 'none';
                 });
             });
-            
-            // Initialize charts
-            initializeConversionChart();
-            initializeStatusChart();
-            
-            // Animate counters
-            animateCounters();
-            
-            // Initialize filters
-            initializeFilters();
-        });
-        
-        // Initialize conversion rate chart
-        function initializeConversionChart() {
-            const ctx = document.getElementById('conversionRateChart').getContext('2d');
-            
-            const data = {
-                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-                datasets: [
-                    {
-                        label: 'Conversion Rate (%)',
-                        data: [62, 59, 65, 61, 68, 71, 75, 72, 69, 74, 76, 78],
-                        borderColor: '#6366f1',
-                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                        borderWidth: 2,
-                        tension: 0.3,
-                        fill: true
-                    },
-                    {
-                        label: 'Target Rate (%)',
-                        data: [60, 60, 65, 65, 65, 70, 70, 70, 75, 75, 75, 80],
-                        borderColor: '#d1d5db',
-                        borderWidth: 2,
-                        borderDash: [5, 5],
-                        tension: 0.3,
-                        fill: false
-                    }
-                ]
-            };
-            
-            const config = {
-                type: 'line',
-                data: data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                            labels: {
-                                usePointStyle: true,
-                                boxWidth: 6
-                            }
-                        },
-                        tooltip: {
-                            mode: 'index',
-                            intersect: false,
-                            backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                            titleColor: '#1f2937',
-                            bodyColor: '#4b5563',
-                            borderColor: '#e5e7eb',
-                            borderWidth: 1,
-                            padding: 12,
-                            boxPadding: 6,
-                            usePointStyle: true,
-                            callbacks: {
-                                label: function(context) {
-                                    return context.dataset.label + ': ' + context.parsed.y + '%';
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            grid: {
-                                display: false
-                            }
-                        },
-                        y: {
-                            beginAtZero: true,
-                            max: 100,
-                            ticks: {
-                                callback: function(value) {
-                                    return value + '%';
-                                }
-                            }
-                        }
-                    }
-                }
-            };
-            
-            new Chart(ctx, config);
         }
-        
-        // Initialize lead status chart
-        function initializeStatusChart() {
-            const ctx = document.getElementById('leadStatusChart').getContext('2d');
-            
-            const data = {
-                labels: ['New', 'Contacted', 'Qualified', 'Converted', 'Closed'],
-                datasets: [{
-                    data: [15, 25, 20, 30, 10],
-                    backgroundColor: [
-                        '#0284c7',
-                        '#d97706',
-                        '#16a34a',
-                        '#2563eb',
-                        '#dc2626'
-                    ],
-                    borderWidth: 0
-                }]
-            };
-            
-            const config = {
-                type: 'doughnut',
-                data: data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'right',
-                            labels: {
-                                usePointStyle: true,
-                                boxWidth: 6,
-                                padding: 20
-                            }
-                        },
-                        tooltip: {
-                            backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                            titleColor: '#1f2937',
-                            bodyColor: '#4b5563',
-                            borderColor: '#e5e7eb',
-                            borderWidth: 1,
-                            padding: 12,
-                            boxPadding: 6,
-                            usePointStyle: true,
-                            callbacks: {
-                                label: function(context) {
-                                    const value = context.parsed;
-                                    const total = context.dataset.data.reduce((acc, data) => acc + data, 0);
-                                    const percentage = Math.round((value / total) * 100);
-                                    return context.label + ': ' + percentage + '%';
-                                }
-                            }
-                        }
-                    },
-                    cutout: '65%'
-                }
-            };
-            
-            new Chart(ctx, config);
-        }
-        
-        // Animate counters
-        function animateCounters() {
-            const statValues = document.querySelectorAll('.stat-value');
-            
-            statValues.forEach(stat => {
-                const finalValue = stat.textContent;
-                let startValue = 0;
-                
-                // Check if value is a percentage
-                if (finalValue.includes('%')) {
-                    const numericValue = parseFloat(finalValue);
-                    const duration = 1500;
-                    const increment = numericValue / (duration / 16);
-                    
-                    const timer = setInterval(() => {
-                        startValue += increment;
-                        if (startValue >= numericValue) {
-                            stat.textContent = finalValue;
-                            clearInterval(timer);
-                        } else {
-                            stat.textContent = startValue.toFixed(1) + '%';
-                        }
-                    }, 16);
-                }
-                // Check if value is currency
-                else if (finalValue.includes('₹')) {
-                    const numericValue = parseFloat(finalValue.replace(/[^\d.]/g, ''));
-                    const duration = 1500;
-                    const increment = numericValue / (duration / 16);
-                    
-                    const timer = setInterval(() => {
-                        startValue += increment;
-                        if (startValue >= numericValue) {
-                            stat.textContent = finalValue;
-                            clearInterval(timer);
-                        } else {
-                            stat.textContent = '₹' + startValue.toFixed(1) + 'L';
-                        }
-                    }, 16);
-                }
-                // Regular number
-                else {
-                    const numericValue = parseInt(finalValue.replace(/,/g, ''));
-                    const duration = 1500;
-                    const increment = numericValue / (duration / 16);
-                    
-                    const timer = setInterval(() => {
-                        startValue += increment;
-                        if (startValue >= numericValue) {
-                            stat.textContent = finalValue;
-                            clearInterval(timer);
-                        } else {
-                            stat.textContent = Math.floor(startValue).toLocaleString();
-                        }
-                    }, 16);
-                }
-            });
-        }
-        
-        // Update team performance based on selected tab
-        function updateTeamPerformance(tabType) {
-            // Sample data for different tabs
-            const performanceData = {
-                conversion: [
-                    { name: 'Rajesh Kumar', value: '78.2%', total: '342', progress: '78%' },
-                    { name: 'Priya Sharma', value: '72.5%', total: '298', progress: '65%' },
-                    { name: 'Vikram Singh', value: '68.9%', total: '276', progress: '82%' },
-                    { name: 'Neha Patel', value: '64.3%', total: '368', progress: '71%' }
-                ],
-                volume: [
-                    { name: 'Rajesh Kumar', value: '342', total: '78.2%', progress: '85%' },
-                    { name: 'Priya Sharma', value: '298', total: '72.5%', progress: '76%' },
-                    { name: 'Vikram Singh', value: '276', total: '68.9%', progress: '69%' },
-                    { name: 'Neha Patel', value: '368', total: '64.3%', progress: '92%' }
-                ],
-                value: [
-                    { name: 'Rajesh Kumar', value: '₹18.5L', total: '342', progress: '92%' },
-                    { name: 'Priya Sharma', value: '₹12.8L', total: '298', progress: '80%' },
-                    { name: 'Vikram Singh', value: '₹15.2L', total: '276', progress: '76%' },
-                    { name: 'Neha Patel', value: '₹16.7L', total: '368', progress: '83%' }
-                ]
-            };
-            
-            const data = performanceData[tabType];
-            const teamCards = document.querySelectorAll('.team-card');
-            
-            // Update team cards with new data
-            teamCards.forEach((card, index) => {
-                if (data[index]) {
-                    const statValue = card.querySelector('.team-stat-value');
-                    const statLabel = card.querySelector('.team-stat-label');
-                    const progressValue = card.querySelector('.progress-value');
-                    const progressFill = card.querySelector('.progress-fill');
-                    
-                    // Animate the transition
-                    animateValue(statValue, data[index].value);
-                    
-                    // Update labels based on tab type
-                    if (tabType === 'conversion') {
-                        statLabel.textContent = 'Conversion Rate';
-                    } else if (tabType === 'volume') {
-                        statLabel.textContent = 'Total Leads';
-                    } else if (tabType === 'value') {
-                        statLabel.textContent = 'Lead Value';
-                    }
-                    
-                    progressValue.textContent = data[index].progress;
-                    progressFill.style.width = data[index].progress;
-                }
-            });
-        }
-        
-        // Animate value change
-        function animateValue(element, newValue) {
-            const currentValue = element.textContent;
-            element.textContent = newValue;
-            
-            // Add a brief highlight effect
-            element.style.color = '#6366f1';
-            setTimeout(() => {
-                element.style.color = '';
-            }, 1000);
-        }
-        
-        // Initialize filters
-        function initializeFilters() {
-            const applyFiltersBtn = document.getElementById('applyFilters');
-            const resetFiltersBtn = document.getElementById('resetFilters');
-            const leadsSearch = document.getElementById('leadsSearch');
-            
-            // Apply filters
-            applyFiltersBtn.addEventListener('click', function() {
-                // In a real application, you would fetch filtered data from the server
-                // For demo purposes, we'll just show a notification
-                showNotification('Filters applied successfully', 'success');
-            });
-            
-            // Reset filters
-            resetFiltersBtn.addEventListener('click', function() {
-                const filterSelects = document.querySelectorAll('.filter-select');
-                const filterInputs = document.querySelectorAll('.filter-input');
-                
-                filterSelects.forEach(select => {
-                    select.selectedIndex = 0;
-                });
-                
-                filterInputs.forEach(input => {
-                    input.value = '';
-                });
-                
-                showNotification('Filters have been reset', 'info');
-            });
-            
-            // Search leads
-            leadsSearch.addEventListener('input', function() {
-                const searchTerm = this.value.toLowerCase();
-                const tableRows = document.querySelectorAll('.leads-table tbody tr');
-                
-                tableRows.forEach(row => {
-                    const text = row.textContent.toLowerCase();
-                    row.style.display = text.includes(searchTerm) ? '' : 'none';
-                });
-            });
-            
-            // Export buttons
-            document.getElementById('downloadConversionChart').addEventListener('click', function() {
-                showNotification('Conversion chart exported successfully', 'success');
-            });
-            
-            document.getElementById('downloadStatusChart').addEventListener('click', function() {
-                showNotification('Status chart exported successfully', 'success');
-            });
-            
-            document.getElementById('exportLeads').addEventListener('click', function() {
-                showNotification('Leads data exported successfully', 'success');
-            });
-        }
-        
-        // Show notification
-        function showNotification(message, type = 'info') {
-            // Check if notification container exists
-            let container = document.getElementById('notificationContainer');
-            if (!container) {
-                container = document.createElement('div');
-                container.id = 'notificationContainer';
-                container.style.cssText = `
-                    position: fixed;
-                    top: 20px;
-                    right: 20px;
-                    z-index: 9999;
-                    display: flex;
-                    flex-direction: column;
-                    gap: 10px;
-                `;
-                document.body.appendChild(container);
-            }
-            
-            // Create notification
-            const notification = document.createElement('div');
-            notification.style.cssText = `
-                background: ${type === 'success' ? '#dcfce7' : type === 'error' ? '#fee2e2' : '#dbeafe'};
-                color: ${type === 'success' ? '#166534' : type === 'error' ? '#991b1b' : '#1e40af'};
-                border-left: 4px solid ${type === 'success' ? '#16a34a' : type === 'error' ? '#dc2626' : '#3b82f6'};
-                padding: 16px;
-                border-radius: 8px;
-                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                min-width: 300px;
-                max-width: 400px;
-                animation: slideInRight 0.3s ease-out;
-                transition: opacity 0.3s ease;
-            `;
-            
-            // Icon based on type
-            const icon = type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle';
-            
-            notification.innerHTML = `
-                <i class="fas fa-${icon}" style="font-size: 20px;"></i>
-                <div style="flex: 1;">
-                    <div style="font-weight: 600; margin-bottom: 2px;">${type.charAt(0).toUpperCase() + type.slice(1)}</div>
-                    <div style="font-size: 14px;">${message}</div>
-                </div>
-                <button style="background: none; border: none; cursor: pointer; color: inherit; font-size: 16px;">
-                    <i class="fas fa-times"></i>
-                </button>
-            `;
-            
-            // Add to container
-            container.appendChild(notification);
-            
-            // Add click event to close button
-            notification.querySelector('button').addEventListener('click', () => {
-                notification.style.opacity = '0';
-                setTimeout(() => {
-                    if (notification.parentNode) {
-                        container.removeChild(notification);
-                    }
-                }, 300);
-            });
-            
-            // Auto remove after 5 seconds
-            setTimeout(() => {
-                if (notification.parentNode) {
-                    notification.style.opacity = '0';
-                    setTimeout(() => {
-                        if (notification.parentNode) {
-                            container.removeChild(notification);
-                        }
-                    }, 300);
-                }
-            }, 5000);
-        }
-    </script>
+    });
+</script>
+
+
 </body>
 </html>

@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Teams - Lead Management System</title>
     <link rel="icon" type="image/png" href="{{ asset('logo1.png') }}">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -746,16 +747,19 @@ input:checked + .slider:before {
                         <div class="form-group">
                             <label for="employeeDesignation" class="form-label">
                                 <i class="fas fa-briefcase"></i>
-                                Designation <span class="required">*</span>
+                                Role <span class="required">*</span>
                             </label>
-                            <input type="text" id="employeeDesignation" name="designation" class="form-input" placeholder="Enter designation" required>
+                            <select id="employeeDesignation" name="designation" class="form-input" required>
+    <option value="employee" selected>Employee</option>
+</select>
+
                         </div>
 
   <!-- Employee Role -->
 <div class="form-group">
     <label for="employeeRole" class="form-label">
         <i class="fas fa-user-tag"></i>
-        Role <span class="required"></span>
+        Designation <span class="required"></span>
     </label>
     <select id="employeeRole" name="employee_role" class="form-input" >
         <option value="">-- Select Role --</option>
@@ -825,11 +829,11 @@ input:checked + .slider:before {
                         <div class="table-stats">
                             <div class="stat-item">
                                 <i class="fas fa-users"></i>
-                                <span>Total: <span class="stat-value" id="totalEmployees">0</span></span>
+                                <span>Total: <span class="stat-value" id="totalEmployees">{{$totalEmployees}}</span></span>
                             </div>
                             <div class="stat-item">
                                 <i class="fas fa-user-check"></i>
-                                <span>Active: <span class="stat-value" id="activeEmployees">0</span></span>
+                                <span>Active: <span class="stat-value" id="activeEmployees">{{$activeEmployees}}</span></span>
                             </div>
                         </div>
                     </div>
@@ -962,7 +966,6 @@ input:checked + .slider:before {
     </div>
 
     <script>
-
        let employees = @json($employees ?? []);
         let filteredEmployees = [...employees];
         let editingEmployeeId = null;
@@ -971,7 +974,7 @@ input:checked + .slider:before {
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
             renderEmployeesTable();
-            updateStats();
+
 
             // Form submission
             document.getElementById('employeeForm').addEventListener('submit', handleFormSubmit);
@@ -1012,24 +1015,53 @@ input:checked + .slider:before {
             filteredEmployees = [...employees];
 
             renderEmployeesTable();
-            updateStats();
+
             resetForm();
             showSuccessModal();
         }
 
         // Update existing employee
-        function updateEmployee(id, employeeData) {
-            const index = employees.findIndex(emp => emp.id === id);
-            if (index !== -1) {
-                employees[index] = { ...employees[index], ...employeeData };
-                filteredEmployees = [...employees];
+   function updateEmployee(id, employeeData) {
+    const formData = new FormData();
 
-                renderEmployeesTable();
-                updateStats();
-                resetForm();
-                showNotification('Employee updated successfully!', 'success');
-            }
-        }
+    formData.append('name', employeeData.name);
+    formData.append('email', employeeData.email);
+    formData.append('designation', employeeData.designation);
+    formData.append('phone', employeeData.phone);
+    formData.append('employee_role', employeeData.employee_role || 'employee');
+    formData.append('address', employeeData.address || '');
+
+    // Spoof the PUT method
+    formData.append('_method', 'PUT');
+
+   fetch(`/team-lead/employees/${id}`, {
+    method: 'POST', // or 'PUT' if you adjust your route
+    headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+    },
+    body: JSON.stringify(employeeData)
+})
+
+    .then(response => {
+        if (!response.ok) throw new Error('Failed to update');
+        return response.text(); // or response.json() if you're returning JSON
+    })
+    .then(data => {
+    // Update local data
+    const index = employees.findIndex(emp => emp.id === id);
+    if (index !== -1) {
+        employees[index] = { ...employees[index], ...employeeData };
+        filteredEmployees = [...employees]; // Also update filtered list
+    }
+
+    renderEmployeesTable(); // Now it shows updated value
+    resetForm();
+    showNotification('Employee updated successfully!', 'success');
+});
+   }
+
+
 
         // Edit employee
         function editEmployee(id) {
@@ -1042,6 +1074,7 @@ input:checked + .slider:before {
             document.getElementById('employeeId').value = employee.id;
             document.getElementById('employeeName').value = employee.name;
             document.getElementById('employeeDesignation').value = employee.designation;
+            document.getElementById('employeeRole').value=employee.employee_role;
             document.getElementById('employeeEmail').value = employee.email;
             document.getElementById('employeePhone').value = employee.phone;
             document.getElementById('employeeAddress').value = employee.address === 'Not provided' ? '' : employee.address;
@@ -1071,7 +1104,7 @@ input:checked + .slider:before {
                 filteredEmployees = [...employees];
 
                 renderEmployeesTable();
-                updateStats();
+
                 showNotification('Employee deleted successfully!', 'success');
             }
         }
@@ -1145,74 +1178,102 @@ function resetForm() {
         }
 
         // Render employees table //not needed
-        // function renderEmployeesTable() {
-        //     const tbody = document.getElementById('employeesTableBody');
-        //     const emptyState = document.getElementById('emptyState');
+function renderEmployeesTable() {
+    const tbody = document.getElementById('employeesTableBody');
+    const emptyState = document.getElementById('emptyState');
 
-        //     if (filteredEmployees.length === 0) {
-        //         tbody.innerHTML = '';
-        //         emptyState.style.display = 'block';
-        //         return;
-        //     }
+    if (filteredEmployees.length === 0) {
+        tbody.innerHTML = '';
+        emptyState.style.display = 'block';
+        return;
+    }
 
-        //     emptyState.style.display = 'none';
+    emptyState.style.display = 'none';
 
-        //     tbody.innerHTML = filteredEmployees.map(employee => {
-        //         const initials = employee.name.split(' ').map(n => n[0]).join('').toUpperCase();
+    tbody.innerHTML = filteredEmployees.map(employee => {
+        const initials = employee.name.split(' ').map(n => n[0]).join('').toUpperCase();
+        const isActive = !employee.deleted_at;
 
-        //         return `
-        //             <tr>
-        //                 <td>
-        //                     <div class="employee-info">
-        //                         <div class="employee-avatar">
-        //                             ${employee.photo ?
-        //                                 `<img src="${employee.photo}" alt="${employee.name}">` :
-        //                                 `<div class="employee-avatar-placeholder">${initials}</div>`
-        //                             }
-        //                         </div>
-        //                         <div class="employee-details">
-        //                             <div class="employee-name">${employee.name}</div>
-        //                             <div class="employee-email">${employee.email}</div>
-        //                         </div>
-        //                     </div>
-        //                 </td>
-        //                 <td>
-        //                     <span class="designation-badge">${employee.designation}</span>
-        //                 </td>
-        //                 <td>
-        //                     <div class="contact-info">
-        //                         <i class="fas fa-phone"></i>
-        //                         ${employee.phone}
-        //                     </div>
-        //                 </td>
-        //                 <td>
-        //                     <div class="contact-info">
-        //                         <i class="fas fa-map-marker-alt"></i>
-        //                         ${employee.address}
-        //                     </div>
-        //                 </td>
-        //                 <td>
-        //                     <div class="action-buttons">
-        //                         <button class="action-btn btn-edit" onclick="editEmployee(${employee.id})" title="Edit Employee">
-        //                             <i class="fas fa-edit"></i>
-        //                         </button>
-        //                         <button class="action-btn btn-delete" onclick="deleteEmployee(${employee.id})" title="Delete Employee">
-        //                             <i class="fas fa-trash"></i>
-        //                         </button>
-        //                     </div>
-        //                 </td>
-        //             </tr>
-        //         `;
-        //     }).join('');
-        // }
+        return `
+            <tr>
+                <!-- Employee Info -->
+                <td>
+                    <div class="employee-info">
+                        <div class="employee-avatar">
+                            ${employee.photo ?
+                                `<img src="${employee.photo}" alt="${employee.name}">` :
+                                `<div class="employee-avatar-placeholder">${initials}</div>`
+                            }
+                        </div>
+                        <div class="employee-details">
+                            <div class="employee-name">${employee.name}</div>
+                            <div class="employee-email">${employee.email}</div>
+                        </div>
+                    </div>
+                </td>
+
+                <!-- Designation -->
+                <td>
+                    <span class="designation-badge">${employee.designation}</span>
+                </td>
+
+                <!-- Phone -->
+                <td>
+                    <div class="contact-info">
+                        <i class="fas fa-phone"></i> ${employee.phone || 'N/A'}
+                    </div>
+                </td>
+
+                <!-- Address -->
+                <td>
+                    <div class="contact-info">
+                        <i class="fas fa-map-marker-alt"></i> ${employee.address || 'Not provided'}
+                    </div>
+                </td>
+
+                <!-- Status Badge -->
+                <td>
+                    <span class="badge ${isActive ? 'bg-success' : 'bg-danger'}">
+                        ${isActive ? 'Active' : 'Inactive'}
+                    </span>
+                </td>
+
+                <!-- Actions -->
+                <td>
+                    <div class="d-flex align-items-center gap-2">
+
+                        <!-- Edit Button -->
+                        <button type="button" class="btn btn-sm btn-warning" onclick="editEmployee(${employee.id})" title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </button>
+
+                        <!-- Toggle Form -->
+              <form action="/team-lead/employees/${employee.id}/${isActive ? 'deactivate' : 'activate'}" method="POST" class="toggle-form m-0 p-0">
+
+                            <input type="hidden" name="_token" value="${document.querySelector('meta[name=csrf-token]').content}">
+                            <label class="switch mb-0">
+                                <input type="checkbox" onchange="this.form.submit()" ${isActive ? 'checked' : ''}>
+                                <span class="slider round"></span>
+                            </label>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+
 
 
 
         // Update stats
-        function updateStats() {
-            document.getElementById('totalEmployees').textContent = employees.length;
-            document.getElementById('activeEmployees').textContent = employees.length;
-        }
+
+
+
+
+
+
 
         // Show success modal
         function showSuccessModal() {
@@ -1222,6 +1283,15 @@ function resetForm() {
 
         // Close success modal
         function closeSuccessModal() {
+
+
+
+
+
+
+
+
+
             document.getElementById('successModal').classList.remove('active');
             document.body.style.overflow = 'auto';
         }

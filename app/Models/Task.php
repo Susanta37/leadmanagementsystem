@@ -1,17 +1,18 @@
 <?php
 
 namespace App\Models;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Task extends Model
-
 {
     use HasFactory;
-   protected $fillable = [
+
+    protected $fillable = [
         'team_lead_id',
-        'employee_id',
         'title',
+        'target_type',
         'progress',
         'priority',
         'activity_timeline',
@@ -23,24 +24,46 @@ class Task extends Model
     ];
 
     protected $casts = [
-        'status' => 'string', // Enum: pending, in_progress, completed
+        'status' => 'string',
+        'assigned_date' => 'datetime',
+        'due_date' => 'datetime',
+        'attachments' => 'array',
+        'activity_timeline' => 'array', // Optional: if activity_timeline is JSON
     ];
 
-    // Team Lead who assigned the task
     public function teamLead()
     {
         return $this->belongsTo(User::class, 'team_lead_id');
     }
 
-    // Employee assigned to the task (nullable for bulk tasks)
-    public function employee()
-    {
-        return $this->belongsTo(User::class, 'employee_id');
-    }
-
-    // Notifications related to this task
     public function notifications()
     {
         return $this->hasMany(Notification::class, 'task_id');
     }
+
+
+ public function list()
+{
+    $leadId = auth()->id();
+
+    $tasks = Task::where('team_lead_id', $leadId)
+        ->with(['assignees:id,name,avatar']) // define relation first
+        ->get();
+
+    return response()->json($tasks);
 }
+
+ public function assignees()
+    {
+        return $this->belongsToMany(User::class, 'notifications', 'task_id', 'user_id')
+                    ->withPivot('message', 'is_read')
+                    ->withTimestamps();
+    }
+
+    public function assigned_user()
+{
+    return $this->belongsTo(User::class, 'assigned_to'); // 'assigned_to' is the foreign key
+}
+
+}
+
