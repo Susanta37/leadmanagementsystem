@@ -3,7 +3,7 @@
         // AOS Animation Library (simplified)
         function initAOS() {
             const elements = document.querySelectorAll('[data-aos]');
-            
+
             const observer = new IntersectionObserver((entries) => {
                 entries.forEach(entry => {
                     if (entry.isIntersecting) {
@@ -14,7 +14,7 @@
                     }
                 });
             }, { threshold: 0.1 });
-            
+
             elements.forEach(el => observer.observe(el));
         }
 
@@ -27,28 +27,31 @@
         });
 
         // Counter Animation
-        function initializeCounters() {
-            const statValues = document.querySelectorAll('.stat-value');
-            
-            statValues.forEach(stat => {
-                const target = stat.getAttribute('data-target');
-                const numericValue = parseInt(target.replace(/[^0-9]/g, ''));
-                
-                if (!isNaN(numericValue)) {
-                    let currentValue = 0;
-                    const increment = numericValue / 50;
-                    const timer = setInterval(() => {
-                        currentValue += increment;
-                        if (currentValue >= numericValue) {
-                            stat.textContent = target;
-                            clearInterval(timer);
-                        } else {
-                            stat.textContent = Math.floor(currentValue);
-                        }
-                    }, 30);
+   function initializeCounters() {
+    const statValues = document.querySelectorAll('.stat-value');
+
+    statValues.forEach(stat => {
+        const target = stat.getAttribute('data-target');
+
+        if (!target) return; // 🔒 Skip if data-target is missing
+
+        const numericValue = parseInt(target.replace(/[^0-9]/g, ''));
+
+        if (!isNaN(numericValue)) {
+            let currentValue = 0;
+            const increment = numericValue / 50;
+            const timer = setInterval(() => {
+                currentValue += increment;
+                if (currentValue >= numericValue) {
+                    stat.textContent = target;
+                    clearInterval(timer);
+                } else {
+                    stat.textContent = Math.floor(currentValue);
                 }
-            });
+            }, 30);
         }
+    });
+}
 
         // Initialize Charts
         function initializeCharts() {
@@ -184,7 +187,7 @@
                 filter.addEventListener('click', function() {
                     taskFilters.forEach(f => f.classList.remove('active'));
                     this.classList.add('active');
-                    
+
                     const filterType = this.getAttribute('data-filter');
                     filterTasks(filterType);
                 });
@@ -210,7 +213,7 @@
             const dateRange = document.getElementById('dateRange').value;
             const teamFilter = document.getElementById('teamFilter').value;
             const statusFilter = document.getElementById('statusFilter').value;
-            
+
             console.log('Applying filters:', { dateRange, teamFilter, statusFilter });
             // Implement filter logic here
             showNotification('Filters applied successfully!', 'success');
@@ -220,13 +223,13 @@
             document.getElementById('dateRange').value = 'month';
             document.getElementById('teamFilter').value = 'all';
             document.getElementById('statusFilter').value = 'all';
-            
+
             showNotification('Filters reset successfully!', 'info');
         }
 
         function filterTasks(type) {
             const taskItems = document.querySelectorAll('.task-item');
-            
+
             taskItems.forEach(item => {
                 if (type === 'all') {
                     item.style.display = 'flex';
@@ -245,13 +248,13 @@
         function toggleMenu(menuId) {
             const menu = document.getElementById(menuId);
             const allMenus = document.querySelectorAll('.dropdown-menu1');
-            
+
             allMenus.forEach(m => {
                 if (m.id !== menuId) {
                     m.classList.remove('active');
                 }
             });
-            
+
             menu.classList.toggle('active');
         }
 
@@ -289,7 +292,7 @@
             const taskType = document.getElementById('taskType').value;
             const individualAssignment = document.getElementById('individualAssignment');
             const teamAssignment = document.getElementById('teamAssignment');
-            
+
             if (taskType === 'individual') {
                 individualAssignment.style.display = 'block';
                 teamAssignment.style.display = 'none';
@@ -302,7 +305,7 @@
         function createTask() {
             const form = document.getElementById('taskForm');
             const formData = new FormData(form);
-            
+
             // Simulate task creation
             console.log('Creating task with data:', Object.fromEntries(formData));
             showNotification('Task created successfully!', 'success');
@@ -343,25 +346,28 @@
                     avatar: '/placeholder.svg?height=100&width=100'
                 }
             };
-            
+
             const employee = employees[employeeId] || employees['EMP001'];
-            
+
             document.getElementById('employeeName').textContent = employee.name;
             document.getElementById('employeeRole').textContent = employee.role;
             document.getElementById('employeeId').textContent = employeeId;
             document.getElementById('employeeAvatar').src = employee.avatar;
         }
 
-        function showTab(tabName) {
-            const tabs = document.querySelectorAll('.tab-btn');
-            const panes = document.querySelectorAll('.tab-pane');
-            
-            tabs.forEach(tab => tab.classList.remove('active'));
-            panes.forEach(pane => pane.classList.remove('active'));
-            
-            document.querySelector(`[onclick="showTab('${tabName}')"]`).classList.add('active');
-            document.getElementById(tabName).classList.add('active');
-        }
+      function showTab(tabName) {
+    const tabs = document.querySelectorAll('.tab-btn');
+    const panes = document.querySelectorAll('.tab-pane');
+
+    tabs.forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.tab === tabName);
+    });
+
+    panes.forEach(pane => {
+        pane.classList.toggle('active', pane.id === tabName);
+    });
+}
+
 
         function addNewEmployee() {
             console.log('Adding new employee');
@@ -428,7 +434,7 @@
         function toggleSelectAll() {
             const selectAll = document.getElementById('selectAll');
             const rowSelects = document.querySelectorAll('.row-select');
-            
+
             rowSelects.forEach(checkbox => {
                 checkbox.checked = selectAll.checked;
             });
@@ -441,7 +447,7 @@
                 <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'warning' ? 'exclamation-triangle' : 'info-circle'}"></i>
                 <span>${message}</span>
             `;
-            
+
             // Add notification styles if not already present
             if (!document.querySelector('.notification-styles')) {
                 const styles = document.createElement('style');
@@ -472,9 +478,9 @@
                 `;
                 document.head.appendChild(styles);
             }
-            
+
             document.body.appendChild(notification);
-            
+
             setTimeout(() => {
                 notification.style.animation = 'slideInRight 0.3s ease reverse';
                 setTimeout(() => notification.remove(), 300);
@@ -490,7 +496,7 @@
             }
         });
 
-        
+
 function openLeadModal() {
     document.getElementById('leadModal').classList.add('active');
     document.body.style.overflow = 'hidden';

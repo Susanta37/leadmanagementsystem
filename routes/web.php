@@ -2,11 +2,13 @@
 
 use App\Http\Controllers\AdminController\AdminController;
 use App\Http\Controllers\OpearationController\OperationDashboardController;
+use App\Http\Controllers\TLController\TeamLeadReportController;
 use App\Http\Controllers\TLController\TLDashboardController;
 use App\Http\Controllers\EmployeeController\EmployeeDashboardController as EmployeeController;
 use App\Http\Controllers\EmployeeController\WebLeadController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TLController\LeadController;
+use App\Http\Controllers\TLController\TaskController;
 use App\Http\Controllers\TLController\TLEmployeeContoller;
 use App\Http\Controllers\TLController\TLEmployeeController;
 use Illuminate\Support\Facades\Route;
@@ -67,18 +69,28 @@ Route::middleware(['auth', 'designation:employee'])->prefix('employee')->name('e
 
 // Team Lead routes (accessible only by users with designation 'team_lead')
 Route::middleware(['auth', 'designation:team_lead'])->prefix('team-lead')->name('team_lead.')->group(function () {
-    Route::get('/dashboard', [TLDashboardController::class, 'dashboard'])->name('dashboard');
+    Route::get('/dashboard', [TLDashboardController::class, 'dashboardStats'])->name('dashboard');
+    Route::get('/team-lead/lead-report', [TLDashboardController::class, 'filterLeadReport'])->name('report');
     Route::get('/teams', [TLDashboardController::class, 'indexTeams'])->name('teams.index');
     Route::get('/leads', [LeadController::class, 'indexLeads'])->name('leads.index');
-   Route::post('/leads/{lead}/forward', [LeadController::class, 'forwardToTeamLead'])->name('leads.forward');
-    Route::post('/leads/{lead}/authorize', [LeadController::class, 'setAuthorized'])->name('leads.authorize');
-    Route::post('/leads/{lead}/approve', [LeadController::class, 'approveLead'])->name('leads.approve');
-    Route::post('/leads/{lead}/reject', [LeadController::class, 'rejectLead'])->name('leads.reject');
-    Route::post('/leads/{lead}/future', [LeadController::class, 'setFutureLead'])->name('leads.future');
+   //Route::post('/leads/{id}/forward', [LeadController::class, 'forwardToTeamLead'])->name('leads.forward');
+    Route::post('/leads/{id}/authorize', [LeadController::class, 'authorizeLead'])->name('leads.authorize');
+    //Route::post('/leads/{lead}/approve', [LeadController::class, 'authorizeLead'])->name('leads.approve');
+    Route::post('/leads/{id}/reject', [LeadController::class, 'rejectLead'])->name('leads.reject');
+    Route::post('/leads/{id}/future', [LeadController::class, 'markFutureLead'])->name('leads.future');
+    //routes in which team lead can see the leads forwrded to him/her
+    Route::get('/leads/forwarded-to-me', [LeadController::class, 'forwardedToMe'])->name('leads.forwarded_to_me');
+    Route::post('/leads/{id}/forward-admin', [LeadController::class, 'forwardToAdmin']);
+Route::post('/leads/{id}/forward-operations', [LeadController::class, 'forwardToOperations']);
+Route::get('/operations-users', [LeadController::class, 'getOperationsUsers']);
+Route::get('/leads/export', [LeadController::class, 'export'])->name('leads.export');
+
+
+
     Route::get('/tasks', [TLDashboardController::class, 'indexTasks'])->name('tasks.index');
     Route::get('/tasks/create', [TLDashboardController::class, 'createTask'])->name('tasks.create');
     Route::post('/tasks', [TLDashboardController::class, 'storeTask'])->name('tasks.store');
-    Route::get('/reports', [TLDashboardController::class, 'indexReports'])->name('reports.index');
+
     Route::get('/setting', [TLDashboardController::class, 'indexSetting'])->name('setting.index');
     Route::post('/tasks/bulk-assign', [TLDashboardController::class, 'bulkAssignTasks'])->name('tasks.bulk_assign');
     Route::get('/notifications', [TLDashboardController::class, 'indexNotifications'])->name('notifications.index');
@@ -92,10 +104,19 @@ Route::middleware(['auth', 'designation:team_lead'])->prefix('team-lead')->name(
     // Route::get('/team/employees/{id}/edit', [TLEmployeeController::class, 'edit'])->name('employees.edit');
 
     // Update existing employee
-    Route::put('/employees/{id}', [TLEmployeeController::class, 'update'])->name('employees.update');
+    Route::post('/employees/{id}', [TLEmployeeController::class, 'update'])->name('employees.update');
 
 Route::post('/employees/{id}/deactivate', [TLEmployeeController::class, 'deactivate'])->name('employees.deactivate');
 Route::post('/employees/{id}/activate', [TLEmployeeController::class, 'activate'])->name('employees.activate');
+
+
+//report
+Route::get('/export-report/{type}', [TeamLeadReportController::class, 'export'])
+    ->name('teamlead.export');
+    Route::get('/reports', [TeamLeadReportController::class, 'indexReports'])->name('reports.index');
+    Route::get('/employee/details/{id}', [TeamLeadReportController::class, 'show']);
+
+
 
 
 });
@@ -122,5 +143,16 @@ Route::middleware(['auth', 'designation:admin'])->prefix('admin')->name('admin.'
     Route::get('/attendances', [AdminController::class, 'indexAttendances'])->name('attendances.index');
     Route::get('/notifications', [AdminController::class, 'indexNotifications'])->name('notifications.index');
 });
+
+//Task management
+
+Route::prefix('team-lead/tasks')->middleware('auth')->group(function () {
+    Route::post('/store', [TaskController::class, 'store'])->name('team.tasks.store');
+    //Route::get('/list', [TaskController::class, 'list'])->name('team.tasks.list');
+   Route::get('/assigned-tasks', [TaskController::class, 'getAllTasksForTeamLead'])->name('teamlead.tasks');
+
+
+});
+
 
 require __DIR__.'/auth.php';

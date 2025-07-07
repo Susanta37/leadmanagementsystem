@@ -70,8 +70,11 @@ class Lead extends Model
         return $this->belongsTo(User::class, 'team_lead_id');
     }
 
-    public function histories()
-    {
-        return $this->hasMany(LeadHistory::class, 'lead_id');
-    }
+  
+
+    public function forwardedHistories()
+{
+    return $this->hasMany(LeadForwardedHistory::class, 'lead_id');
+}
+
 }

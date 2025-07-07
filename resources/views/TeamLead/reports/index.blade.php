@@ -785,22 +785,19 @@
         }
 
         /* Modal Styles */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(4px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s ease;
-        }
+     .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-overlay.show {
+    display: flex;
+}
 
         .modal-overlay.active {
             opacity: 1;
@@ -824,8 +821,14 @@
         }
 
         .modal-content.large {
-            max-width: 900px;
-        }
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    width: 80%;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
 
         .modal-header {
             padding: 24px 24px 0;
@@ -1066,6 +1069,49 @@
             transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
+         .lead-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+    }
+
+    .lead-table th, .lead-table td {
+        border: 1px solid #ddd;
+        padding: 10px 12px;
+        text-align: left;
+    }
+
+    .lead-table th {
+        background-color: #f4f4f4;
+        color: #333;
+        text-transform: uppercase;
+    }
+
+    .lead-table tbody tr:hover {
+        background-color: #f9f9f9;
+    }
+
+    .highlight-lead {
+        background-color: #fffbe6;
+        font-weight: bold;
+    }
+
+    .status-badge {
+        padding: 4px 8px;
+        font-size: 12px;
+        border-radius: 4px;
+        display: inline-block;
+    }
+
+    .status-authorized { background-color: #e6f0ff; color: #0047ab; }
+    .status-disbursed { background-color: #e6ffed; color: #087f23; }
+    .status-rejected { background-color: #ffe6e6; color: #d32f2f; }
+    .status-approved { background-color: #e0f7f4; color: #00695c; }
+    .status-default { background-color: #f0f0f0; color: #555; }
+
+
         [data-aos].aos-animate {
             opacity: 1;
             transform: translateY(0);
@@ -1156,10 +1202,10 @@
 </head>
 <body>
     @include('TeamLead.Components.sidebar')
-    
+
     <div class="main-content">
         @include('TeamLead.Components.header', ['title' => 'Team Lead Dashboard', 'subtitle' => 'Manage your team and track performance'])
-        
+
         <div class="dashboard-container">
             <!-- Dashboard Filters -->
             <div class="dashboard-filters" data-aos="fade-down">
@@ -1174,7 +1220,7 @@
                             <option value="custom">Custom Range</option>
                         </select>
                     </div>
-                    
+
                     <div class="filter-group">
                         <label for="teamFilter">Team</label>
                         <select id="teamFilter" class="filter-select">
@@ -1184,7 +1230,7 @@
                             <option value="operations">Operations Team</option>
                         </select>
                     </div>
-                    
+
                     <div class="filter-group">
                         <label for="statusFilter">Status</label>
                         <select id="statusFilter" class="filter-select">
@@ -1194,7 +1240,7 @@
                             <option value="completed">Completed</option>
                         </select>
                     </div>
-                    
+
                     <div class="filter-actions">
                         <button class="btn btn-primary" onclick="applyFilters()">
                             <i class="fas fa-filter"></i>
@@ -1208,153 +1254,107 @@
                 </div>
             </div>
 
-            <!-- Quick Stats Cards -->
+
     <!-- Quick Stats Cards -->
-<div class="stats-grid" data-aos="fade-up" data-aos-delay="100">
-    <!-- All Leads -->
-    <div class="stat-card all-leads">
+<div class="stats-grid">
+
+    <!-- Total Leads -->
+    <div class="stat-card blue">
         <div class="stat-header">
-            <div class="stat-icon">
-                <i class="fas fa-database"></i>
-            </div>
-            <div class="stat-menu">
-                <button class="menu-btn" onclick="toggleMenu('allLeadsMenu')">
-                    <i class="fas fa-ellipsis-v"></i>
-                </button>
-                <div class="dropdown-menu1" id="allLeadsMenu">
-                    <a href="#" onclick="viewAllLeads()">View All</a>
-                    <a href="#" onclick="exportLeads()">Export</a>
-                </div>
-            </div>
+            <div class="stat-icon"><i class="fas fa-user-friends"></i></div>
+            <button class="export-btn" onclick="exportLeads('total')">
+                <i class="fas fa-file-excel"></i> Export
+            </button>
         </div>
-        <div class="stat-content">
-            <div class="stat-value" data-target="{{ $allLeads ?? 0 }}">{{ $allLeads ?? 0 }}</div>
-            <div class="stat-label">All Leads</div>
+        <div class="stat-value">{{ $stats['total_leads'] }}</div>
+        <div class="stat-label">Total Leads</div>
+    </div>
+    <!-- Personal Leads -->
+<div class="stat-card orange">
+    <div class="stat-header">
+        <div class="stat-icon"><i class="fas fa-user-tag"></i></div>
+        <button class="export-btn" onclick="exportLeads('personal')">
+            <i class="fas fa-file-excel"></i> Export
+        </button>
+    </div>
+    <div class="stat-value">{{ $stats['personal_leads'] ?? 0 }}</div>
+    <div class="stat-label">Personal Leads</div>
+</div>
+
+
+    <!-- Authorized Leads -->
+    <div class="stat-card green">
+        <div class="stat-header">
+            <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+            <button class="export-btn" onclick="exportLeads('authorized')">
+                <i class="fas fa-file-excel"></i> Export
+            </button>
         </div>
+        <div class="stat-value">{{ $stats['authorized_leads'] }}</div>
+        <div class="stat-label">Authorized Leads</div>
     </div>
 
-    <!-- New Leads -->
-    <div class="stat-card new-leads">
+    <!-- Login Leads -->
+    <div class="stat-card purple">
         <div class="stat-header">
-            <div class="stat-icon">
-                <i class="fas fa-plus-circle"></i>
-            </div>
-            <div class="stat-menu">
-                <button class="menu-btn" onclick="toggleMenu('newLeadsMenu')">
-                    <i class="fas fa-ellipsis-v"></i>
-                </button>
-                <div class="dropdown-menu1" id="newLeadsMenu">
-                    <a href="#" onclick="viewNewLeads()">View New</a>
-                    <a href="#" onclick="exportNewLeads()">Export</a>
-                </div>
-            </div>
+            <div class="stat-icon"><i class="fas fa-sign-in-alt"></i></div>
+            <button class="export-btn" onclick="exportLeads('login')">
+                <i class="fas fa-file-excel"></i> Export
+            </button>
         </div>
-        <div class="stat-content">
-            <div class="stat-value" data-target="{{ $newLeads ?? 0 }}">{{ $newLeads ?? 0 }}</div>
-            <div class="stat-label">New Leads</div>
-        </div>
+        <div class="stat-value">{{ $stats['login_leads'] }}</div>
+        <div class="stat-label">Login Leads</div>
     </div>
 
     <!-- Approved Leads -->
-    <div class="stat-card approved-leads">
+    <div class="stat-card teal">
         <div class="stat-header">
-            <div class="stat-icon">
-                <i class="fas fa-check-circle"></i>
-            </div>
-            <div class="stat-menu">
-                <button class="menu-btn" onclick="toggleMenu('approvedLeadsMenu')">
-                    <i class="fas fa-ellipsis-v"></i>
-                </button>
-                <div class="dropdown-menu1" id="approvedLeadsMenu">
-                    <a href="#" onclick="viewApprovedLeads()">View Approved</a>
-                    <a href="#" onclick="exportApprovedLeads()">Export</a>
-                </div>
-            </div>
+            <div class="stat-icon"><i class="fas fa-thumbs-up"></i></div>
+            <button class="export-btn" onclick="exportLeads('approved')">
+                <i class="fas fa-file-excel"></i> Export
+            </button>
         </div>
-        <div class="stat-content">
-            <div class="stat-value" data-target="{{ $approvedLeads ?? 0 }}">{{ $approvedLeads ?? 0 }}</div>
-            <div class="stat-label">Approved Leads</div>
-        </div>
+        <div class="stat-value">{{ $stats['approved_leads'] }}</div>
+        <div class="stat-label">Approved Leads</div>
     </div>
 
-    <!-- Pending Leads -->
-    <div class="stat-card pending-leads">
+    <!-- Disbursed Leads -->
+    <div class="stat-card yellow">
         <div class="stat-header">
-            <div class="stat-icon">
-                <i class="fas fa-hourglass-half"></i>
-            </div>
-            <div class="stat-menu">
-                <button class="menu-btn" onclick="toggleMenu('pendingLeadsMenu')">
-                    <i class="fas fa-ellipsis-v"></i>
-                </button>
-                <div class="dropdown-menu1" id="pendingLeadsMenu">
-                    <a href="#" onclick="viewPendingLeads()">View Pending</a>
-                    <a href="#" onclick="exportPendingLeads()">Export</a>
-                </div>
-            </div>
+            <div class="stat-icon"><i class="fas fa-hand-holding-usd"></i></div>
+            <button class="export-btn" onclick="exportLeads('disbursed')">
+                <i class="fas fa-file-excel"></i> Export
+            </button>
         </div>
-        <div class="stat-content">
-            <div class="stat-value" data-target="{{ $pendingLeads ?? 0 }}">{{ $pendingLeads ?? 0 }}</div>
-            <div class="stat-label">Pending Leads</div>
-        </div>
+        <div class="stat-value">{{ $stats['disbursed_leads'] }}</div>
+        <div class="stat-label">Disbursed Leads</div>
     </div>
 
     <!-- Rejected Leads -->
-    <div class="stat-card rejected-leads">
+    <div class="stat-card dark">
         <div class="stat-header">
-            <div class="stat-icon">
-                <i class="fas fa-times-circle"></i>
-            </div>
-            <div class="stat-menu">
-                <button class="menu-btn" onclick="toggleMenu('rejectedLeadsMenu')">
-                    <i class="fas fa-ellipsis-v"></i>
-                </button>
-                <div class="dropdown-menu1" id="rejectedLeadsMenu">
-                    <a href="#" onclick="viewRejectedLeads()">View Rejected</a>
-                    <a href="#" onclick="exportRejectedLeads()">Export</a>
-                </div>
-            </div>
+            <div class="stat-icon"><i class="fas fa-times-circle"></i></div>
+            <button class="export-btn" onclick="exportLeads('rejected')">
+                <i class="fas fa-file-excel"></i> Export
+            </button>
         </div>
-        <div class="stat-content">
-            <div class="stat-value" data-target="{{ $rejectedLeads ?? 0 }}">{{ $rejectedLeads ?? 0 }}</div>
-            <div class="stat-label">Rejected Leads</div>
-        </div>
+        <div class="stat-value">{{ $stats['rejected_leads'] }}</div>
+        <div class="stat-label">Rejected Leads</div>
     </div>
 
-    <!-- Team Members -->
-    <div class="stat-card team-members">
+    <!-- Active Employees -->
+    <div class="stat-card grey">
         <div class="stat-header">
-            <div class="stat-icon">
-                <i class="fas fa-users"></i>
-            </div>
-            <div class="stat-menu">
-                <button class="menu-btn" onclick="toggleMenu('teamMembersMenu')">
-                    <i class="fas fa-ellipsis-v"></i>
-                </button>
-                <div class="dropdown-menu1" id="teamMembersMenu">
-                    <a href="#" onclick="viewAllTeamMembers()">View All</a>
-                    <a href="#" onclick="addNewMember()">Add Member</a>
-                    <a href="#" onclick="exportTeamData()">Export</a>
-                </div>
-            </div>
+            <div class="stat-icon"><i class="fas fa-user"></i></div>
         </div>
-        <div class="stat-content">
-            <div class="stat-value" data-target="{{ $teamMembers ?? 0 }}">{{ $teamMembers ?? 0 }}</div>
-            <div class="stat-label">Team Members</div>
-            <div class="stat-details">
-                <span class="detail-item active">{{ $activeMembers ?? 0 }} Active</span>
-                <span class="detail-item pending">{{ $onLeaveMembers ?? 0 }} On Leave</span>
-                <span class="detail-item inactive">{{ $inactiveMembers ?? 0 }} Inactive</span>
-            </div>
-        </div>
-        <div class="stat-chart">
-            <canvas id="teamMembersChart" width="80" height="40"></canvas>
-        </div>
+        <div class="stat-value">{{ $stats['active_employees'] }}</div>
+        <div class="stat-label">Active Employees</div>
     </div>
 </div>
 
+
             <!-- Charts Section -->
-            <div class="charts-section" data-aos="fade-up" data-aos-delay="200">
+            {{-- <div class="charts-section" data-aos="fade-up" data-aos-delay="200">
                 <div class="chart-card performance-chart">
                     <div class="chart-header">
                         <h3>Team Performance Overview</h3>
@@ -1385,714 +1385,399 @@
                         <canvas id="approvalChart"></canvas>
                     </div>
                 </div>
-            </div>
+            </div> --}}
 
             <!-- Data Tables Section -->
-            <div class="tables-section" data-aos="fade-up" data-aos-delay="300">
-                <!-- Team Present Details Table -->
-                <div class="table-card">
-                    <div class="table-header">
-                        <h3>Today's Attendance Details</h3>
-                        <div class="table-actions">
-                            <button class="btn btn-primary" onclick="exportAttendance()">
-                                <i class="fas fa-download"></i>
-                                Export
-                            </button>
-                            <button class="btn btn-secondary" onclick="refreshAttendance()">
-                                <i class="fas fa-refresh"></i>
-                                Refresh
-                            </button>
-                        </div>
-                    </div>
-                    <div class="table-content">
-                        <div class="table-wrapper">
-                            <table class="data-table" id="attendanceTable">
-                                <thead>
-                                    <tr>
-                                        <th>Employee</th>
-                                        <th>Check In</th>
-                                        <th>Check Out</th>
-                                        <th>Hours</th>
-                                        <th>Status</th>
-                                        <th>Location</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>
-                                            <div class="employee-info">
-                                                <img src="/placeholder.svg?height=32&width=32" alt="Employee" class="employee-avatar">
-                                                <div>
-                                                    <div class="employee-name">John Doe</div>
-                                                    <div class="employee-id">EMP001</div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>09:15 AM</td>
-                                        <td>06:30 PM</td>
-                                        <td>9h 15m</td>
-                                        <td><span class="status-badge approved">Approved</span></td>
-                                        <td>Office</td>
-                                        <td>
-                                            <div class="action-buttons">
-                                                <button class="btn-icon" onclick="viewEmployee('EMP001')" title="View Details">
-                                                    <i class="fas fa-eye"></i>
-                                                </button>
-                                                <button class="btn-icon" onclick="editAttendance('EMP001')" title="Edit">
-                                                    <i class="fas fa-edit"></i>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <div class="employee-info">
-                                                <img src="/placeholder.svg?height=32&width=32" alt="Employee" class="employee-avatar">
-                                                <div>
-                                                    <div class="employee-name">Sarah Wilson</div>
-                                                    <div class="employee-id">EMP002</div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>09:30 AM</td>
-                                        <td>-</td>
-                                        <td>-</td>
-                                        <td><span class="status-badge pending">Pending</span></td>
-                                        <td>Remote</td>
-                                        <td>
-                                            <div class="action-buttons">
-                                                <button class="btn-icon" onclick="viewEmployee('EMP002')" title="View Details">
-                                                    <i class="fas fa-eye"></i>
-                                                </button>
-                                                <button class="btn-icon" onclick="approveAttendance('EMP002')" title="Approve">
-                                                    <i class="fas fa-check"></i>
-                                                </button>
-                                                <button class="btn-icon" onclick="rejectAttendance('EMP002')" title="Reject">
-                                                    <i class="fas fa-times"></i>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <div class="employee-info">
-                                                <img src="/placeholder.svg?height=32&width=32" alt="Employee" class="employee-avatar">
-                                                <div>
-                                                    <div class="employee-name">Mike Johnson</div>
-                                                    <div class="employee-id">EMP003</div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>10:45 AM</td>
-                                        <td>-</td>
-                                        <td>-</td>
-                                        <td><span class="status-badge rejected">Rejected</span></td>
-                                        <td>Office</td>
-                                        <td>
-                                            <div class="action-buttons">
-                                                <button class="btn-icon" onclick="viewEmployee('EMP003')" title="View Details">
-                                                    <i class="fas fa-eye"></i>
-                                                </button>
-                                                <button class="btn-icon" onclick="viewRemarks('EMP003')" title="View Remarks">
-                                                    <i class="fas fa-comment"></i>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
+           <div class="table-card">
+    <div class="table-header">
+        <h3>Today's Attendance Details</h3>
+    </div>
+    <div class="table-content">
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Employee ID</th>
+                        <th>Check In</th>
+                        <th>Check Out</th>
+                        <th>Hours</th>
+                        <th>Check-In Location</th>
+                        <th>Check-Out Location</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($attendances as $attendance)
+                        <tr>
+                            <td>EMP{{ str_pad($attendance->employee_id, 3, '0', STR_PAD_LEFT) }}</td>
+                            <td>{{ $attendance->check_in ? \Carbon\Carbon::parse($attendance->check_in)->format('h:i A') : '-' }}</td>
+                            <td>{{ $attendance->check_out ? \Carbon\Carbon::parse($attendance->check_out)->format('h:i A') : '-' }}</td>
+                            <td>
+                                @if($attendance->check_in && $attendance->check_out)
+                                    @php
+                                        $in = \Carbon\Carbon::parse($attendance->check_in);
+                                        $out = \Carbon\Carbon::parse($attendance->check_out);
+                                        $duration = $in->diff($out);
+                                    @endphp
+                                    {{ $duration->h }}h {{ $duration->i }}m
+                                @else
+                                    -
+                                @endif
+                            </td>
+                            <td>{{ $attendance->check_in_location ?? '-' }}</td>
+                            <td>{{ $attendance->check_out_location ?? '-' }}</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="6" class="text-center">No attendance found for today.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
 
-                <!-- Leads Management Table -->
-                <div class="table-card">
-                    <div class="table-header">
-                        <h3>Leads Management</h3>
-                        <div class="table-actions">
-                           <button class="btn btn-primary" onclick="openLeadModal()">
-    <i class="fas fa-plus"></i>
-    New Lead
-</button>
-                            <button class="btn btn-secondary" onclick="bulkActions()">
-                                <i class="fas fa-tasks"></i>
-                                Bulk Actions
-                            </button>
-                        </div>
-                    </div>
-                    <div class="table-content">
-                        <div class="table-wrapper">
-                            <table class="data-table" id="leadsTable">
-                                <thead>
-                                    <tr>
-                                        <th>
-                                            <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
-                                        </th>
-                                        <th>Lead ID</th>
-                                        <th>Customer</th>
-                                        <th>Amount</th>
-                                        <th>Status</th>
-                                        <th>Assigned To</th>
-                                        <th>Created</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td><input type="checkbox" class="row-select"></td>
-                                        <td>LD001</td>
-                                        <td>
-                                            <div class="customer-info">
-                                                <div class="customer-name">Rajesh Kumar</div>
-                                                <div class="customer-phone">+91 98765 43210</div>
-                                            </div>
-                                        </td>
-                                        <td>₹5,00,000</td>
-                                        <td>
-                                            <select class="status-select" onchange="updateLeadStatus('LD001', this.value)">
-                                                <option value="pending">Pending</option>
-                                                <option value="approved" selected>Approved</option>
-                                                <option value="rejected">Rejected</option>
-                                                <option value="processing">Processing</option>
-                                            </select>
-                                        </td>
-                                        <td>John Doe</td>
-                                        <td>2024-01-15</td>
-                                        <td>
-                                            <div class="action-buttons">
-                                                <button class="btn-icon" onclick="viewLead('LD001')" title="View Details">
-                                                    <i class="fas fa-eye"></i>
-                                                </button>
-                                                <button class="btn-icon" onclick="editLead('LD001')" title="Edit">
-                                                    <i class="fas fa-edit"></i>
-                                                </button>
-                                                <button class="btn-icon" onclick="addRemarks('LD001')" title="Add Remarks">
-                                                    <i class="fas fa-comment-plus"></i>
-                                                </button>
-                                                <button class="btn-icon" onclick="sendToOperations('LD001')" title="Send to Operations">
-                                                    <i class="fas fa-paper-plane"></i>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td><input type="checkbox" class="row-select"></td>
-                                        <td>LD002</td>
-                                        <td>
-                                            <div class="customer-info">
-                                                <div class="customer-name">Priya Sharma</div>
-                                                <div class="customer-phone">+91 87654 32109</div>
-                                            </div>
-                                        </td>
-                                        <td>₹3,50,000</td>
-                                        <td>
-                                            <select class="status-select" onchange="updateLeadStatus('LD002', this.value)">
-                                                <option value="pending" selected>Pending</option>
-                                                <option value="approved">Approved</option>
-                                                <option value="rejected">Rejected</option>
-                                                <option value="processing">Processing</option>
-                                            </select>
-                                        </td>
-                                        <td>Sarah Wilson</td>
-                                        <td>2024-01-16</td>
-                                        <td>
-                                            <div class="action-buttons">
-                                                <button class="btn-icon" onclick="viewLead('LD002')" title="View Details">
-                                                    <i class="fas fa-eye"></i>
-                                                </button>
-                                                <button class="btn-icon" onclick="editLead('LD002')" title="Edit">
-                                                    <i class="fas fa-edit"></i>
-                                                </button>
-                                                <button class="btn-icon" onclick="approveLead('LD002')" title="Approve">
-                                                    <i class="fas fa-check"></i>
-                                                </button>
-                                                <button class="btn-icon" onclick="rejectLead('LD002')" title="Reject">
-                                                    <i class="fas fa-times"></i>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
+<form method="GET" action="{{ route('team_lead.reports.index') }}" class="filter-form mb-4">
+    <label>Filter by Date:</label>
+    <select name="filter" onchange="toggleCustomRange(this.value)">
+        <option value="7" {{ request('filter') == 7 ? 'selected' : '' }}>Last 7 Days</option>
+        <option value="15" {{ request('filter') == 15 ? 'selected' : '' }}>Last 15 Days</option>
+        <option value="30" {{ request('filter') == 30 ? 'selected' : '' }}>Last 30 Days</option>
+        <option value="custom" {{ request('filter') == 'custom' ? 'selected' : '' }}>Custom Range</option>
+    </select>
 
-            <!-- Task Management Section -->
-            <div class="task-management-section" data-aos="fade-up" data-aos-delay="400">
-                <div class="task-card">
-                    <div class="task-header">
-                        <h3>Task Management</h3>
-                        <button class="btn btn-primary" onclick="openTaskModal()">
-                            <i class="fas fa-plus"></i>
-                            Create Task
-                        </button>
-                    </div>
-                    <div class="task-content">
-                        <div class="task-filters">
-                            <button class="task-filter active" data-filter="all">All Tasks</button>
-                            <button class="task-filter" data-filter="individual">Individual</button>
-                            <button class="task-filter" data-filter="team">Team Tasks</button>
-                            <button class="task-filter" data-filter="overdue">Overdue</button>
-                        </div>
-                        
-                        <div class="task-list">
-                            <div class="task-item" data-type="individual">
-                                <div class="task-info">
-                                    <div class="task-title">Complete loan documentation review</div>
-                                    <div class="task-meta">
-                                        <span class="task-assignee">Assigned to: John Doe</span>
-                                        <span class="task-due">Due: Jan 20, 2024</span>
-                                    </div>
-                                </div>
-                                <div class="task-status">
-                                    <span class="status-badge in-progress">In Progress</span>
-                                </div>
-                                <div class="task-actions">
-                                    <button class="btn-icon" onclick="editTask('TSK001')" title="Edit">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button class="btn-icon" onclick="deleteTask('TSK001')" title="Delete">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            </div>
+    <div id="custom-range" style="display: {{ request('filter') == 'custom' ? 'block' : 'none' }};">
+        <label>From:</label>
+        <input type="date" name="from" value="{{ request('from') }}">
+        <label>To:</label>
+        <input type="date" name="to" value="{{ request('to') }}">
+    </div>
 
-                            <div class="task-item" data-type="team">
-                                <div class="task-info">
-                                    <div class="task-title">Monthly sales target achievement</div>
-                                    <div class="task-meta">
-                                        <span class="task-assignee">Assigned to: Sales Team</span>
-                                        <span class="task-due">Due: Jan 31, 2024</span>
-                                    </div>
-                                </div>
-                                <div class="task-status">
-                                    <span class="status-badge pending">Pending</span>
-                                </div>
-                                <div class="task-actions">
-                                    <button class="btn-icon" onclick="editTask('TSK002')" title="Edit">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button class="btn-icon" onclick="deleteTask('TSK002')" title="Delete">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            </div>
+    <button type="submit" class="btn btn-primary">Apply</button>
+</form>
 
-                            <div class="task-item" data-type="individual">
-                                <div class="task-info">
-                                    <div class="task-title">Customer follow-up calls</div>
-                                    <div class="task-meta">
-                                        <span class="task-assignee">Assigned to: Sarah Wilson</span>
-                                        <span class="task-due">Due: Jan 18, 2024</span>
-                                    </div>
-                                </div>
-                                <div class="task-status">
-                                    <span class="status-badge overdue">Overdue</span>
-                                </div>
-                                <div class="task-actions">
-                                    <button class="btn-icon" onclick="editTask('TSK003')" title="Edit">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button class="btn-icon" onclick="deleteTask('TSK003')" title="Delete">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
-            <!-- Team Members Overview -->
-            <div class="team-overview-section" data-aos="fade-up" data-aos-delay="500">
-                <div class="team-card">
-                    <div class="team-header">
-                        <h3>Team Members Overview</h3>
-                        <div class="team-actions">
-                            <button class="btn btn-primary" onclick="addNewEmployee()">
-                                <i class="fas fa-user-plus"></i>
-                                Add Employee
-                            </button>
-                            <button class="btn btn-secondary" onclick="viewAllMembers()">
-                                <i class="fas fa-users"></i>
-                                View All
-                            </button>
-                        </div>
-                    </div>
-                    <div class="team-content">
-                        <div class="team-grid">
-                            <div class="member-card" onclick="viewMemberDetails('EMP001')">
-                                <div class="member-avatar">
-                                    <img src="/placeholder.svg?height=60&width=60" alt="John Doe">
-                                    <div class="member-status online"></div>
-                                </div>
-                                <div class="member-info">
-                                    <div class="member-name">John Doe</div>
-                                    <div class="member-role">Senior Sales Executive</div>
-                                    <div class="member-stats">
-                                        <div class="stat-item">
-                                            <span class="stat-label">Performance</span>
-                                            <span class="stat-value">92%</span>
-                                        </div>
-                                        <div class="stat-item">
-                                            <span class="stat-label">Attendance</span>
-                                            <span class="stat-value">95%</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+@if($leads->count())
+    <table class="lead-table">
+        <thead>
+            <tr>
+                <th>Lead ID</th>
+                <th>Customer</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Created At</th>
+                <th>Assigned To</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach ($leads as $lead)
+                <tr class="{{ $lead->lead_amount > 100000 ? 'highlight-lead' : '' }}">
+                    <td>{{ $lead->id }}</td>
+                    <td>{{ $lead->name }}</td>
+                    <td>₹{{ number_format($lead->lead_amount, 2) }}</td>
+                    <td>
+                        <span class="status-badge
+                            {{
+                                $lead->status === 'authorized' ? 'status-authorized' :
+                                ($lead->status === 'disbursed' ? 'status-disbursed' :
+                                ($lead->status === 'rejected' ? 'status-rejected' :
+                                ($lead->status === 'approved' ? 'status-approved' : 'status-default')))
+                            }}">
+                            {{ ucfirst($lead->status) }}
+                        </span>
+                    </td>
+                    <td>{{ $lead->created_at->format('d M Y') }}</td>
+                    <td>{{ $lead->employee->name ?? 'N/A' }}</td>
+                </tr>
+            @endforeach
+        </tbody>
+    </table>
+@else
+    <p>No leads found for selected filter.</p>
+@endif
 
-                            <div class="member-card" onclick="viewMemberDetails('EMP002')">
-                                <div class="member-avatar">
-                                    <img src="/placeholder.svg?height=60&width=60" alt="Sarah Wilson">
-                                    <div class="member-status online"></div>
-                                </div>
-                                <div class="member-info">
-                                    <div class="member-name">Sarah Wilson</div>
-                                    <div class="member-role">Marketing Specialist</div>
-                                    <div class="member-stats">
-                                        <div class="stat-item">
-                                            <span class="stat-label">Performance</span>
-                                            <span class="stat-value">88%</span>
-                                        </div>
-                                        <div class="stat-item">
-                                            <span class="stat-label">Attendance</span>
-                                            <span class="stat-value">92%</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
 
-                            <div class="member-card" onclick="viewMemberDetails('EMP003')">
-                                <div class="member-avatar">
-                                    <img src="/placeholder.svg?height=60&width=60" alt="Mike Johnson">
-                                    <div class="member-status away"></div>
-                                </div>
-                                <div class="member-info">
-                                    <div class="member-name">Mike Johnson</div>
-                                    <div class="member-role">Operations Executive</div>
-                                    <div class="member-stats">
-                                        <div class="stat-item">
-                                            <span class="stat-label">Performance</span>
-                                            <span class="stat-value">85%</span>
-                                        </div>
-                                        <div class="stat-item">
-                                            <span class="stat-label">Attendance</span>
-                                            <span class="stat-value">89%</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
 
-                            <div class="member-card" onclick="viewMemberDetails('EMP004')">
-                                <div class="member-avatar">
-                                    <img src="/placeholder.svg?height=60&width=60" alt="Emma Davis">
-                                    <div class="member-status offline"></div>
-                                </div>
-                                <div class="member-info">
-                                    <div class="member-name">Emma Davis</div>
-                                    <div class="member-role">Customer Support</div>
-                                    <div class="member-stats">
-                                        <div class="stat-item">
-                                            <span class="stat-label">Performance</span>
-                                            <span class="stat-value">90%</span>
-                                        </div>
-                                        <div class="stat-item">
-                                            <span class="stat-label">Attendance</span>
-                                            <span class="stat-value">94%</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+<!-- Task Management Section -->
+<div class="task-management-section" data-aos="fade-up" data-aos-delay="400">
+   <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Task Management</h5>
+        <button class="btn btn-dark">
+            <i class="fas fa-file-export me-1"></i> Export Tasks
+        </button>
+    </div>
+
+    <div class="card-body">
+        <!-- Filter Buttons -->
+        <div class="mb-3">
+            <button class="btn btn-primary task-filter active" data-filter="all">All Team</button>
+            <button class="btn btn-outline-primary task-filter" data-filter="individual">Individual</button>
         </div>
 
-        <!-- Task Creation Modal -->
-        <div class="modal-overlay" id="taskModal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>Create New Task</h2>
-                    <button class="modal-close" onclick="closeTaskModal()">
-                        <i class="fas fa-times"></i>
-                    </button>
+        <!-- Task List -->
+        <div id="task-list">
+            @foreach ($tasks as $task)
+                <div class="card mb-3 task-item" data-type="{{ $task->target_type }}">
+                    <div class="card-body">
+                        <h6 class="card-title fw-bold">{{ $task->title }}</h6>
+
+                       <p class="card-subtitle mb-1 text-muted">
+    Assigned to:
+    @if($task->target_type === 'all')
+       All Team
+    @else
+        @php
+            $userIds = $task->notifications->pluck('user_id')->unique()->implode(', ');
+        @endphp
+        {{ $userIds ?: 'N/A' }}
+    @endif
+    &nbsp; | &nbsp;
+    Due: {{ \Carbon\Carbon::parse($task->due_date)->format('M d, Y') }}
+</p>
+
+
+                        <p class="mb-2">{{ $task->description }}</p>
+
+                        <span class="badge
+                            @if($task->status == 'completed') bg-success
+                            @elseif($task->status == 'in_progress') bg-info
+                            @else bg-warning @endif
+                        ">
+                            {{ strtoupper($task->status) }}
+                        </span>
+                    </div>
                 </div>
-                <div class="modal-body">
-                    <form id="taskForm">
-                        <div class="form-group">
-                            <label for="taskTitle">Task Title</label>
-                            <input type="text" id="taskTitle" class="form-control" placeholder="Enter task title" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="taskDescription">Description</label>
-                            <textarea id="taskDescription" class="form-control" rows="3" placeholder="Enter task description"></textarea>
-                        </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="taskType">Assignment Type</label>
-                                <select id="taskType" class="form-control" onchange="toggleAssignmentOptions()">
-                                    <option value="individual">Individual</option>
-                                    <option value="team">Whole Team</option>
-                                </select>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="taskPriority">Priority</label>
-                                <select id="taskPriority" class="form-control">
-                                    <option value="low">Low</option>
-                                    <option value="medium" selected>Medium</option>
-                                    <option value="high">High</option>
-                                    <option value="urgent">Urgent</option>
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <div class="form-group" id="individualAssignment">
-                            <label for="assignedTo">Assign To</label>
-                            <select id="assignedTo" class="form-control">
-                                <option value="">Select Employee</option>
-                                <option value="EMP001">John Doe</option>
-                                <option value="EMP002">Sarah Wilson</option>
-                                <option value="EMP003">Mike Johnson</option>
-                                <option value="EMP004">Emma Davis</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group" id="teamAssignment" style="display: none;">
-                            <label for="assignedTeam">Assign To Team</label>
-                            <select id="assignedTeam" class="form-control">
-                                <option value="">Select Team</option>
-                                <option value="sales">Sales Team</option>
-                                <option value="marketing">Marketing Team</option>
-                                <option value="operations">Operations Team</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="taskDueDate">Due Date</label>
-                                <input type="date" id="taskDueDate" class="form-control" required>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="taskDueTime">Due Time</label>
-                                <input type="time" id="taskDueTime" class="form-control">
-                            </div>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeTaskModal()">Cancel</button>
-                    <button type="button" class="btn btn-primary" onclick="createTask()">Create Task</button>
-                </div>
+            @endforeach
+        </div>
+    </div>
+</div>
+
+
+</div>
+
+
+
+
+
+   <!-- Team Members Overview -->
+<div class="team-overview-section" data-aos="fade-up" data-aos-delay="500">
+    <div class="team-card">
+        <div class="team-header">
+            <h3>Team Members Overview</h3>
+            <div class="team-actions">
+                <button class="btn btn-secondary" onclick="viewAllMembers()">
+                    <i class="fas fa-users"></i>
+                    View All
+                </button>
             </div>
         </div>
+        <div class="team-content">
+            <div class="team-grid">
+                @foreach($employees as $employee)
+                <div class="member-card" onclick="viewMemberDetails({{ $employee->id }})">
+                    <div class="member-avatar">
+                        <img id="employeeAvatar" src="{{ $employee->profile_photo ? asset($employee->profile_photo) : asset('images/placeholder.svg') }}" alt="{{ $employee->name }}">
 
-        <!-- Employee Details Modal -->
-        <div class="modal-overlay" id="employeeModal">
-            <div class="modal-content large">
-                <div class="modal-header">
-                    <h2>Employee Details</h2>
-                    <button class="modal-close" onclick="closeEmployeeModal()">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <div class="employee-details">
-                        <div class="employee-profile">
-                            <div class="profile-avatar">
-                                <img src="/placeholder.svg?height=100&width=100" alt="Employee" id="employeeAvatar">
+                        <div class="member-status online"></div>
+                    </div>
+                    <div class="member-info">
+                        <div class="member-name">{{ $employee->name }}</div>
+                        <div class="member-role">{{ $employee->designation ?? 'N/A' }}</div>
+                        <div class="member-stats">
+                            <div class="stat-item">
+                                <span class="stat-label">Performance</span>
+                                <span class="stat-value">{{ $employee->performance_rate ?? '0' }}%</span>
                             </div>
-                            <div class="profile-info">
-                                <h3 id="employeeName">John Doe</h3>
-                                <p id="employeeRole">Senior Sales Executive</p>
-                                <p id="employeeId">EMP001</p>
-                            </div>
-                        </div>
-                        
-                        <div class="employee-tabs">
-                            <button class="tab-btn active" onclick="showTab('performance')">Performance</button>
-                            <button class="tab-btn" onclick="showTab('attendance')">Attendance</button>
-                            <button class="tab-btn" onclick="showTab('tasks')">Tasks</button>
-                            <button class="tab-btn" onclick="showTab('overview')">Overview</button>
-                        </div>
-                        
-                        <div class="tab-content">
-                            <div id="performance" class="tab-pane active">
-                                <div class="performance-metrics">
-                                    <div class="metric-card">
-                                        <div class="metric-value">92%</div>
-                                        <div class="metric-label">Overall Performance</div>
-                                    </div>
-                                    <div class="metric-card">
-                                        <div class="metric-value">156</div>
-                                        <div class="metric-label">Leads Converted</div>
-                                    </div>
-                                    <div class="metric-card">
-                                        <div class="metric-value">₹25L</div>
-                                        <div class="metric-label">Revenue Generated</div>
-                                    </div>
-                                </div>
-                                <canvas id="employeePerformanceChart"></canvas>
-                            </div>
-                            
-                            <div id="attendance" class="tab-pane">
-                                <div class="attendance-summary">
-                                    <div class="summary-card">
-                                        <div class="summary-value">95%</div>
-                                        <div class="summary-label">Attendance Rate</div>
-                                    </div>
-                                    <div class="summary-card">
-                                        <div class="summary-value">22</div>
-                                        <div class="summary-label">Present Days</div>
-                                    </div>
-                                    <div class="summary-card">
-                                        <div class="summary-value">2</div>
-                                        <div class="summary-label">Absent Days</div>
-                                    </div>
-                                </div>
-                                <canvas id="employeeAttendanceChart"></canvas>
-                            </div>
-                            
-                            <div id="tasks" class="tab-pane">
-                                <div class="task-summary">
-                                    <div class="task-stat">
-                                        <span class="stat-number">15</span>
-                                        <span class="stat-label">Total Tasks</span>
-                                    </div>
-                                    <div class="task-stat">
-                                        <span class="stat-number">12</span>
-                                        <span class="stat-label">Completed</span>
-                                    </div>
-                                    <div class="task-stat">
-                                        <span class="stat-number">3</span>
-                                        <span class="stat-label">In Progress</span>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div id="overview" class="tab-pane">
-                                <div class="overview-grid">
-                                    <div class="overview-item">
-                                        <label>Email:</label>
-                                        <span>john.doe@kredipal.com</span>
-                                    </div>
-                                    <div class="overview-item">
-                                        <label>Phone:</label>
-                                        <span>+91 98765 43210</span>
-                                    </div>
-                                    <div class="overview-item">
-                                        <label>Department:</label>
-                                        <span>Sales</span>
-                                    </div>
-                                    <div class="overview-item">
-                                        <label>Join Date:</label>
-                                        <span>Jan 15, 2023</span>
-                                    </div>
-                                    <div class="overview-item">
-                                        <label>Manager:</label>
-                                        <span>Team Lead</span>
-                                    </div>
-                                    <div class="overview-item">
-                                        <label>Location:</label>
-                                        <span>Mumbai Office</span>
-                                    </div>
-                                </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Attendance</span>
+                                <span class="stat-value">{{ $employee->attendance_rate ?? '0' }}%</span>
                             </div>
                         </div>
                     </div>
                 </div>
+                @endforeach
             </div>
         </div>
+    </div>
+</div>
 
-        <!-- New Lead Modal -->
-<div class="modal-overlay" id="leadModal">
-    <div class="modal-content">
+<!-- Employee Details Modal -->
+<div class="modal-overlay" id="employeeModal">
+    <div class="modal-content large">
         <div class="modal-header">
-            <h2>Create New Lead</h2>
-            <button class="modal-close" onclick="closeLeadModal()">
+            <h2>Employee Details</h2>
+            <button class="modal-close" onclick="closeEmployeeModal()">
                 <i class="fas fa-times"></i>
             </button>
         </div>
-        <form id="leadForm">
-            <div class="modal-body">
-                <div class="form-group">
-                    <label for="employee_id">Employee</label>
-                    <input type="text" id="employee_id" class="form-control" placeholder="Employee ID">
+        <div class="modal-body">
+            <div class="employee-details">
+                <div class="employee-profile">
+                    <div class="profile-avatar">
+                       <img id="employeeAvatar" src="{{ $employee->profile_photo ? asset($employee->profile_photo) : asset('images/placeholder.svg') }}" alt="{{ $employee->name }}">
+
+                    </div>
+                    <div class="profile-info">
+                        <h3 id="employeeName">--</h3>
+                        <p id="employeeRole">--</p>
+                        <p id="employeeId">--</p>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="team_lead_id">Team Lead</label>
-                    <input type="text" id="team_lead_id" class="form-control" placeholder="Team Lead ID">
+
+                <div class="employee-tabs">
+                    <button class="tab-btn active" onclick="showTab('performance')">Performance</button>
+                    <button class="tab-btn" onclick="showTab('attendance')">Attendance</button>
+                    <button class="tab-btn" onclick="showTab('tasks')">Tasks</button>
+                    <button class="tab-btn" onclick="showTab('overview')">Overview</button>
                 </div>
-                <div class="form-group">
-                    <label for="name">Lead Name</label>
-                    <input type="text" id="name" class="form-control" required>
+
+                <div class="tab-content">
+                    <div id="performance" class="tab-pane active">
+                        <div class="performance-metrics">
+                            <div class="metric-card">
+                                <div class="metric-value" id="overallPerformance">--%</div>
+                                <div class="metric-label">Overall Performance</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-value" id="leadsCompleted">--</div>
+                                <div class="metric-label">Leads Completed</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-value" id="revenueGenerated">--</div>
+                                <div class="metric-label">Revenue Generated</div>
+                            </div>
+                        </div>
+                        <canvas id="employeePerformanceChart"></canvas>
+                    </div>
+
+                    <div id="attendance" class="tab-pane">
+                        <div class="attendance-summary">
+                            <div class="summary-card">
+                                <div class="summary-value" id="attendanceRate">--%</div>
+                                <div class="summary-label">Attendance Rate</div>
+                            </div>
+                            <div class="summary-card">
+                                <div class="summary-value" id="presentDays">--</div>
+                                <div class="summary-label">Present Days</div>
+                            </div>
+                            <div class="summary-card">
+                                <div class="summary-value" id="absentDays">--</div>
+                                <div class="summary-label">Absent Days</div>
+                            </div>
+                        </div>
+                        <canvas id="employeeAttendanceChart"></canvas>
+                    </div>
+
+                    <div id="tasks" class="tab-pane">
+                        <div class="task-summary">
+                            <div class="task-stat">
+                                <span class="stat-number" id="totalTasks">--</span>
+                                <span class="stat-label">Total Tasks</span>
+                            </div>
+                            <div class="task-stat">
+                                <span class="stat-number" id="completedTasks">--</span>
+                                <span class="stat-label">Completed</span>
+                            </div>
+                            <div class="task-stat">
+                                <span class="stat-number" id="inProgressTasks">--</span>
+                                <span class="stat-label">In Progress</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="overview" class="tab-pane">
+                        <div class="overview-grid">
+                            <div class="overview-item">
+                                <label>Email:</label>
+                                <span id="employeeEmail">--</span>
+                            </div>
+                            <div class="overview-item">
+                                <label>Phone:</label>
+                                <span id="employeePhone">--</span>
+                            </div>
+                            <div class="overview-item">
+                                <label>Department:</label>
+                                <span id="employeeDepartment">--</span>
+                            </div>
+                            <div class="overview-item">
+                                <label>Join Date:</label>
+                                <span id="employeeJoinDate">--</span>
+                            </div>
+                            <div class="overview-item">
+                                <label>Manager:</label>
+                                <span id="employeeManager">--</span>
+                            </div>
+                            <div class="overview-item">
+                                <label>Location:</label>
+                                <span id="employeeLocation">--</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="phone">Phone</label>
-                    <input type="text" id="phone" class="form-control" required>
-                </div>
-                <div class="form-group">
-                    <label for="email">Email (optional)</label>
-                    <input type="email" id="email" class="form-control">
-                </div>
-                <div class="form-group">
-                    <label for="dob">Date of Birth (optional)</label>
-                    <input type="date" id="dob" class="form-control">
-                </div>
-                <div class="form-group">
-                    <label for="location">Location</label>
-                    <input type="text" id="location" class="form-control" required>
-                </div>
-                <div class="form-group">
-                    <label for="company_name">Company Name (optional)</label>
-                    <input type="text" id="company_name" class="form-control">
-                </div>
-                <div class="form-group">
-                    <label for="lead_amount">Lead Amount</label>
-                    <input type="number" step="0.01" id="lead_amount" class="form-control" required>
-                </div>
-                <div class="form-group">
-                    <label for="salary">Salary (optional)</label>
-                    <input type="number" step="0.01" id="salary" class="form-control">
-                </div>
-                <div class="form-group">
-                    <label for="success_percentage">Success Percentage</label>
-                    <input type="number" id="success_percentage" class="form-control" min="0" max="100" required>
-                </div>
-                <div class="form-group">
-                    <label for="expected_month">Expected Month</label>
-                    <input type="text" id="expected_month" class="form-control" required>
-                </div>
-                <div class="form-group">
-                    <label for="remarks">Remarks (optional)</label>
-                    <textarea id="remarks" class="form-control"></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="status">Status</label>
-                    <select id="status" class="form-control" required>
-                        <option value="pending" selected>Pending</option>
-                        <option value="approved">Approved</option>
-                        <option value="rejected">Rejected</option>
-                        <option value="completed">Completed</option>
-                    </select>
-                </div>
+
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeLeadModal()">Cancel</button>
-                <button type="submit" class="btn btn-primary">Create Lead</button>
-            </div>
-        </form>
+        </div>
     </div>
 </div>
     </div>
    @include('TeamLead.Components.script');
+   <script>
+     function toggleCustomRange(value) {
+        document.getElementById('custom-range').style.display = (value === 'custom') ? 'block' : 'none';
+    }
+
+     document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.task-filter').forEach(button => {
+        button.addEventListener('click', function () {
+            document.querySelectorAll('.task-filter').forEach(btn => btn.classList.remove('active'));
+            this.classList.add('active');
+
+            const filterType = this.getAttribute('data-filter');
+
+            document.querySelectorAll('.task-item').forEach(task => {
+                const taskType = task.getAttribute('data-type');
+                task.style.display = (filterType === taskType) ? 'block' : 'none';
+            });
+        });
+    });
+});
+
+
+    function viewMemberDetails(userId) {
+       fetch(`/team-lead/employee/details/${userId}`)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('employeeName').textContent = data.name;
+                document.getElementById('employeeRole').textContent = data.designation;
+                document.getElementById('employeeId').textContent = 'EMP' + data.id;
+                const avatar = document.getElementById('employeeAvatar');
+            if (avatar) {
+                  avatar.src = data.profile_photo || '/images/placeholder.svg';
+                 }
+
+                document.getElementById('overallPerformance').textContent = data.performance_rate + '%';
+                document.getElementById('leadsCompleted').textContent = data.leads_completed;
+                document.getElementById('revenueGenerated').textContent = data.revenue_generated;
+
+                document.getElementById('attendanceRate').textContent = data.attendance_rate + '%';
+                document.getElementById('presentDays').textContent = data.present_days;
+                document.getElementById('absentDays').textContent = data.absent_days;
+
+                document.getElementById('totalTasks').textContent = data.total_tasks;
+                document.getElementById('completedTasks').textContent = data.completed_tasks;
+                document.getElementById('inProgressTasks').textContent = data.in_progress_tasks;
+
+                document.getElementById('employeeEmail').textContent = data.email;
+                document.getElementById('employeePhone').textContent = data.phone;
+                document.getElementById('employeeDepartment').textContent = data.department;
+                document.getElementById('employeeJoinDate').textContent = data.join_date;
+                document.getElementById('employeeManager').textContent = data.manager;
+                document.getElementById('employeeLocation').textContent = data.location;
+
+                document.getElementById('employeeModal').classList.add('show');
+            });
+    }
+
+
+   </script>
 </body>
 </html>

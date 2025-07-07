@@ -3,23 +3,132 @@
 namespace App\Http\Controllers\TLController;
 
 use App\Http\Controllers\Controller;
+use App\Models\Attendance;
 use App\Models\Lead;
+use App\Models\LeadForwardedHistory;
 use App\Models\Notification;
 use App\Models\Task;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class TLDashboardController extends Controller
 {
-    public function dashboard()
-    {
-        $employees = Auth::user()->employees()->latest()->take(5)->get();
-        $leads = Auth::user()->assignedLeads()->latest()->take(5)->get();
-        $tasks = Auth::user()->assignedTasks()->latest()->take(5)->get();
-        $notifications = Auth::user()->notifications()->latest()->take(5)->get();
-        return view('TeamLead.dashboard', compact('employees', 'leads', 'tasks', 'notifications'));
+public function dashboardStats(Request $request)
+{
+    $teamLeadId = auth()->id();
+    $search = $request->input('search');
+
+    // Get all employee IDs under the team lead
+    $employeeIds = User::where('designation', 'employee')
+        ->where('team_lead_id', $teamLeadId)
+        ->pluck('id');
+
+    // Leads per employee
+    $employeeLeadCounts = Lead::whereIn('employee_id', $employeeIds)
+        ->selectRaw('employee_id, COUNT(*) as total')
+        ->groupBy('employee_id')
+        ->with('employee')
+        ->get();
+
+    $leadsPerEmployee = $employeeLeadCounts->map(function ($item) {
+        return [
+            'employee' => $item->employee->name ?? 'Unknown',
+            'count' => $item->total,
+        ];
+    });
+
+    // Leads per status
+    $statusCounts = Lead::whereIn('employee_id', $employeeIds)
+        ->selectRaw('status, COUNT(*) as total')
+        ->groupBy('status')
+        ->pluck('total', 'status');
+
+    // Lead filters
+    $leadQuery = Lead::with(['employee', 'teamLead'])
+        ->whereIn('employee_id', $employeeIds);
+
+    if ($search) {
+        $leadQuery->where(function ($q) use ($search) {
+            $q->where('name', 'like', "%$search%")
+              ->orWhere('company_name', 'like', "%$search%")
+              ->orWhere('state', 'like', "%$search%")
+              ->orWhere('district', 'like', "%$search%")
+              ->orWhere('city', 'like', "%$search%");
+        });
     }
+
+    $leads = $leadQuery->latest()->paginate(10)->appends(['search' => $search]);
+
+    // Team employee performance (not team lead)
+    $teamPerformance = User::where('designation', 'employee')
+        ->where('team_lead_id', $teamLeadId)
+        ->get()
+        ->map(function ($employee) {
+            $leads = Lead::where('employee_id', $employee->id);
+            $totalLeads = $leads->count();
+            $avgSuccess = $leads->avg('success_percentage');
+
+            return [
+                'name' => $employee->name,
+                'total_leads' => $totalLeads,
+                'conversion_rate' => round($avgSuccess ?? 0, 1),
+                'target_percentage' => min(100, round(($totalLeads / 50) * 100)),
+            ];
+        });
+
+    // Dashboard card stats
+    $stats = [
+        'total_leads' => Lead::whereIn('employee_id', $employeeIds)->count(),
+        'total_lead_value' => Lead::whereIn('employee_id', $employeeIds)->sum('lead_amount'),
+        'authorized_leads' => Lead::whereIn('employee_id', $employeeIds)->where('status', 'authorized')->count(),
+        'authorized_lead_value' => Lead::whereIn('employee_id', $employeeIds)->where('status', 'authorized')->sum('lead_amount'),
+        'login_leads' => Lead::whereIn('employee_id', $employeeIds)->where('status', 'login')->count(),
+        'login_lead_value' => Lead::whereIn('employee_id', $employeeIds)->where('status', 'login')->sum('lead_amount'),
+        'approved_leads' => Lead::whereIn('employee_id', $employeeIds)->where('status', 'approved')->count(),
+        'approved_lead_value' => Lead::whereIn('employee_id', $employeeIds)->where('status', 'approved')->sum('lead_amount'),
+        'disbursed_leads' => Lead::whereIn('employee_id', $employeeIds)->where('status', 'disbursed')->count(),
+        'disbursed_lead_value' => Lead::whereIn('employee_id', $employeeIds)->where('status', 'disbursed')->sum('lead_amount'),
+        'rejected_leads' => Lead::whereIn('employee_id', $employeeIds)->where('status', 'rejected')->count(),
+        'rejected_lead_value' => Lead::whereIn('employee_id', $employeeIds)->where('status', 'rejected')->sum('lead_amount'),
+        'active_employees' => User::where('designation', 'employee')
+            ->where('team_lead_id', $teamLeadId)
+            ->whereNull('deleted_at')
+            ->count(),
+    ];
+
+    // Filter dropdown values
+    $teamLeads = User::where('designation', 'team_lead')->get(['id', 'name']);
+    $employees = User::where('designation', 'employee')->where('team_lead_id', $teamLeadId)->get(['id', 'name']);
+    $statuses = Lead::select('status')->distinct()->pluck('status')->filter()->values();
+    $companies = Lead::select('company_name')->distinct()->pluck('company_name')->filter()->values();
+    $states = Lead::select('state')->distinct()->pluck('state')->filter()->values();
+    $districts = Lead::select('district')->distinct()->pluck('district')->filter()->values();
+    $cities = Lead::select('city')->distinct()->pluck('city')->filter()->values();
+    $banks = Lead::select('bank_name')->distinct()->pluck('bank_name')->filter()->values();
+
+    return view('TeamLead.dashboard', compact(
+        'stats',
+        'teamLeads',
+        'employees',
+        'statuses',
+        'companies',
+        'states',
+        'districts',
+        'cities',
+        'banks',
+        'leads',
+        'leadsPerEmployee',
+        'statusCounts',
+        'teamPerformance',
+        'search'
+    ));
+}
+
+
+
+
 
     // public function indexEmployees()
     // {
@@ -74,13 +183,60 @@ class TLDashboardController extends Controller
         ->where('team_lead_id', auth()->id())
         ->get();
 
-        return view('TeamLead.teams.index', compact('employees'));
-    }
-    public function indexReports()
-    {
+        // Count total and active employees
+   $totalEmployees = User::withTrashed()
+    ->where('team_lead_id', auth()->id())
+    ->count();
 
-        return view('TeamLead.reports.index');
+$activeEmployees = User::where('team_lead_id', auth()->id())
+    ->whereNull('deleted_at')
+    ->count();
+
+
+
+
+        return view('TeamLead.teams.index', compact('employees','totalEmployees','activeEmployees'));
     }
+
+//       public function indexReports()
+// {
+
+//       $today = Carbon::today()->toDateString();
+
+//     $attendances = Attendance::whereDate('date', $today)
+//         ->select(
+//             'id',
+//             'employee_id',
+//             'date',
+//             'check_in',
+//             'check_out',
+//             'check_in_location',
+//             'check_out_location',
+//             'check_in_coordinates',
+//             'check_out_coordinates',
+//             'checkin_image',
+//             'checkout_image',
+//             'notes',
+//             'is_within_geofence',
+//             'created_at'
+//         )
+//         ->orderBy('check_in', 'asc')
+//         ->get();
+
+//     $stats = [
+//         'total_leads' => Lead::count(),
+//         'authorized_leads' => Lead::where('status', 'authorized')->count(),
+//         'login_leads' => Lead::where('status', 'login')->count(),
+//         'approved_leads' => Lead::where('status', 'approved')->count(),
+//         'disbursed_leads' => Lead::where('status', 'disbursed')->count(),
+//         'rejected_leads' => Lead::where('status', 'rejected')->count(),
+//         'active_employees' => User::where('designation', 'employee')->whereNull('deleted_at')->count(), // If soft deletes used
+//         'personal_leads' => Lead::where('status', 'personal_lead')->count(),
+//     ];
+
+//     return view('TeamLead.reports.index', compact('stats','attendances'));
+// }
+
     public function indexSetting(Request $request)
     {
 
@@ -122,11 +278,13 @@ class TLDashboardController extends Controller
     //     return redirect()->route('team_lead.leads.index')->with('success', 'Lead rejected.');
     // }
 
-    public function indexTasks()
-    {
-        $tasks = Auth::user()->assignedTasks()->paginate(10);
-        return view('TeamLead.task.index', compact('tasks'));
-    }
+  public function indexTasks()
+{
+   $employees = User::where('designation', 'employee')->get();
+
+
+    return view('TeamLead.task.index', compact('employees'));
+}
 
     // public function createTask()
     // {
@@ -184,4 +342,151 @@ class TLDashboardController extends Controller
     //     $notifications = Auth::user()->notifications()->latest()->paginate(10);
     //     return view('team-lead.notifications.index', compact('notifications'));
     // }
+
+
+public function filterLeadReport(Request $request)
+{
+    $query = Lead::query()->with(['employee', 'teamLead']);
+
+    // 🧑‍💼 Only leads under this team lead
+    $teamLeadId = auth()->id();
+    $employeeIds = User::where('designation', 'employee')
+        ->where('team_lead_id', $teamLeadId)
+        ->pluck('id');
+    $query->whereIn('employee_id', $employeeIds);
+
+    // 🗓️ Date Range Filter
+    if ($request->filled('date_range') && is_numeric($request->date_range)) {
+        $query->whereBetween('created_at', [
+            now()->subDays((int) $request->date_range)->startOfDay(),
+            now()->endOfDay()
+        ]);
+    }
+
+    // 📅 Custom Range
+    if ($request->date_range === 'custom' && $request->filled('start_date') && $request->filled('end_date')) {
+        $query->whereBetween('created_at', [
+            Carbon::parse($request->start_date)->startOfDay(),
+            Carbon::parse($request->end_date)->endOfDay(),
+        ]);
+    }
+
+    // 🔍 Additional Filters
+    if ($request->filled('status')) {
+        $query->where('status', $request->status);
+    }
+
+    if ($request->filled('company')) {
+        $query->where('company_name', $request->company);
+    }
+
+    if ($request->filled('state')) {
+        $query->where('state', $request->state);
+    }
+
+    if ($request->filled('district')) {
+        $query->where('district', $request->district);
+    }
+
+    if ($request->filled('city')) {
+        $query->where('city', $request->city);
+    }
+
+    if ($request->filled('bank')) {
+        $query->where('bank_name', $request->bank);
+    }
+
+    if ($request->filled('employee_id')) {
+        $query->where('employee_id', $request->employee_id);
+    }
+
+    if ($request->filled('team_lead_id')) {
+        $query->where('team_lead_id', $request->team_lead_id);
+    }
+    // 💰 Lead Amount Range
+if ($request->filled('min_amount')) {
+    $query->where('lead_amount', '>=', $request->min_amount);
+}
+if ($request->filled('max_amount')) {
+    $query->where('lead_amount', '<=', $request->max_amount);
+}
+
+
+    // 💾 Fetch leads (paginated for leads table)
+    $leads = $query->latest()->paginate(10)->appends($request->all());
+
+    // 📊 Leads per employee (chart)
+    $leadsPerEmployee = $query->get()->groupBy('employee_id')->map(function ($group, $empId) {
+        return [
+            'employee' => $group->first()->employee?->name ?? 'Unknown',
+            'count' => $group->count()
+        ];
+    })->values();
+
+    // 📊 Status Distribution (chart)
+    $statusCounts = $query->get()->groupBy('status')->map(fn($group) => $group->count());
+
+    // 👥 Team Performance (cards)
+    $teamPerformance = User::where('designation', 'employee')
+        ->where('team_lead_id', $teamLeadId)
+        ->get()
+        ->map(function ($employee) use ($query) {
+            $employeeLeads = (clone $query)->where('employee_id', $employee->id)->get();
+            $total = $employeeLeads->count();
+            $avgSuccess = $employeeLeads->avg('success_percentage');
+            return [
+                'name' => $employee->name,
+                'total_leads' => $total,
+                'conversion_rate' => round($avgSuccess ?? 0, 1),
+                'target_percentage' => min(100, round(($total / 50) * 100))
+            ];
+        });
+
+    // 📦 Dashboard Stats
+    $stats = [
+        'total_leads' => $query->count(),
+        'total_lead_value' => $query->sum('lead_amount'),
+        'authorized_leads' => (clone $query)->where('status', 'authorized')->count(),
+        'authorized_lead_value' => (clone $query)->where('status', 'authorized')->sum('lead_amount'),
+        'login_leads' => (clone $query)->where('status', 'login')->count(),
+        'login_lead_value' => (clone $query)->where('status', 'login')->sum('lead_amount'),
+        'approved_leads' => (clone $query)->where('status', 'approved')->count(),
+        'approved_lead_value' => (clone $query)->where('status', 'approved')->sum('lead_amount'),
+        'disbursed_leads' => (clone $query)->where('status', 'disbursed')->count(),
+        'disbursed_lead_value' => (clone $query)->where('status', 'disbursed')->sum('lead_amount'),
+        'rejected_leads' => (clone $query)->where('status', 'rejected')->count(),
+        'rejected_lead_value' => (clone $query)->where('status', 'rejected')->sum('lead_amount'),
+        'active_employees' => User::where('designation', 'employee')
+            ->where('team_lead_id', $teamLeadId)
+            ->whereNull('deleted_at')
+            ->count(),
+    ];
+
+    // 🔁 Dropdown data
+    $teamLeads = User::where('designation', 'team_lead')->get(['id', 'name']);
+    $employees = User::where('designation', 'employee')->where('team_lead_id', $teamLeadId)->get(['id', 'name']);
+    $statuses = Lead::select('status')->distinct()->pluck('status')->filter()->values();
+    $companies = Lead::select('company_name')->distinct()->pluck('company_name')->filter()->values();
+    $states = Lead::select('state')->distinct()->pluck('state')->filter()->values();
+    $districts = Lead::select('district')->distinct()->pluck('district')->filter()->values();
+    $cities = Lead::select('city')->distinct()->pluck('city')->filter()->values();
+    $banks = Lead::select('bank_name')->distinct()->pluck('bank_name')->filter()->values();
+
+    return view('TeamLead.dashboard', compact(
+        'stats',
+        'teamLeads',
+        'employees',
+        'statuses',
+        'companies',
+        'states',
+        'districts',
+        'cities',
+        'banks',
+        'leads',
+        'leadsPerEmployee',
+        'statusCounts',
+        'teamPerformance'
+    ));
+}
+
 }

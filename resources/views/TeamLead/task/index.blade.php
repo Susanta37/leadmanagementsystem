@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Dashboard - Lead Management System</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -839,6 +840,34 @@
             justify-content: center;
         }
 
+     #viewTaskModal {
+    display: none;
+    position: fixed;
+    z-index: 99999;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.6);
+    justify-content: center;
+    align-items: center;
+}
+
+    #viewTaskModal.active {
+        display: flex;
+    }
+
+    #viewTaskModal .modal-content {
+        background: white;
+        padding: 24px;
+        border-radius: 8px;
+        width: 500px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        z-index: 10000;
+    }
+
         /* Animations */
         @keyframes fadeInDown {
             from {
@@ -933,14 +962,17 @@
                 gap: 12px;
             }
         }
+
+
+
     </style>
 </head>
 <body>
     @include('TeamLead.Components.sidebar')
-    
+
     <div class="main-content">
         @include('TeamLead.Components.header', ['title' => 'Task Management', 'subtitle' => 'Create and manage team tasks'])
-        
+
         <div class="dashboard-container">
             <!-- Page Header -->
             <div class="page-header">
@@ -964,7 +996,7 @@
                             <i class="fas fa-tasks"></i>
                         </div>
                     </div>
-                    <div class="stat-value" id="totalTasks">0</div>
+                    <div class="stat-value" id="totalTasks"></div>
                     <div class="stat-label">Total Tasks</div>
                 </div>
                 <div class="stat-card">
@@ -1007,7 +1039,7 @@
 
                     <form id="taskForm" onsubmit="submitTask(event)">
                         <input type="hidden" id="taskId" value="">
-                        
+
                         <div class="form-group">
                             <label class="form-label">Task Title *</label>
                             <input type="text" id="taskTitle" class="form-control" placeholder="Enter task title" required>
@@ -1037,7 +1069,8 @@
                                 <div class="priority-option high" onclick="selectPriority('high')">High</div>
                                 <div class="priority-option urgent" onclick="selectPriority('urgent')">Urgent</div>
                             </div>
-                            <input type="hidden" id="taskPriority" value="">
+                           <input type="hidden" id="taskPriority" name="priority" value="">
+
                         </div>
 
                         <div class="form-group">
@@ -1054,11 +1087,11 @@
                                 <button type="button" class="toggle-btn active" id="individualBtn" onclick="toggleSelection('individual')">Individual</button>
                                 <button type="button" class="toggle-btn" id="allBtn" onclick="toggleSelection('all')">All Team</button>
                             </div>
-                            
+
                             <div class="employee-list active" id="employeeList">
                                 <!-- Employee list will be populated here -->
                             </div>
-                            
+
                             <div id="allTeamMessage" style="display: none; padding: 16px; background: #eff6ff; border-radius: 8px; color: #1e40af; font-size: 14px; text-align: center;">
                                 <i class="fas fa-users"></i>
                                 Task will be assigned to all team members
@@ -1145,66 +1178,76 @@
         </div>
     </div>
 
+
+    <div id="viewTaskModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="width: 500px; background: white; padding: 24px; border-radius: 8px;">
+        <h2 id="viewTaskTitle" style="margin-bottom: 16px;">Task Details</h2>
+        <p><strong>Description:</strong> <span id="viewTaskDescription"></span></p>
+        <p><strong>Assigned Date:</strong> <span id="viewTaskAssignedDate"></span></p>
+        <p><strong>Due Date:</strong> <span id="viewTaskDueDate"></span></p>
+        <p><strong>Priority:</strong> <span id="viewTaskPriority"></span></p>
+        <p><strong>Status:</strong> <span id="viewTaskStatus"></span></p>
+        <p><strong>Progress:</strong> <span id="viewTaskProgress"></span>%</p>
+        <p><strong>Assigned To:</strong></p>
+        <ul id="viewTaskAssignees" style="margin-left: 20px;"></ul>
+        <p><strong>Attachments:</strong></p>
+        <ul id="viewTaskAttachments" style="margin-left: 20px;"></ul>
+
+        <button onclick="closeViewModal()" style="margin-top: 20px;" class="btn btn-secondary">Close</button>
+    </div>
+</div>
+
     <script>
         // Sample employee data
-        const employees = [
-            { id: 1, name: 'Rajesh Kumar', role: 'Senior Analyst', avatar: 'RK' },
-            { id: 2, name: 'Priya Sharma', role: 'Data Specialist', avatar: 'PS' },
-            { id: 3, name: 'Amit Patel', role: 'Sales Manager', avatar: 'AP' },
-            { id: 4, name: 'Sneha Reddy', role: 'IT Specialist', avatar: 'SR' },
-            { id: 5, name: 'Vikram Singh', role: 'Designer', avatar: 'VS' }
-        ];
+       const employees = @json($employees); // passed from controller to Blade
 
         // Tasks data
-        let tasks = [
-            {
-                id: 1,
-                title: 'Complete Lead Analysis Report',
-                description: 'Analyze the lead conversion data for Q1 2024 and prepare a comprehensive report with insights and recommendations.',
-                assignees: [employees[0], employees[1]],
-                assignedDate: '2024-01-15',
-                dueDate: '2024-01-30',
-                priority: 'high',
-                progress: 65,
-                status: 'in-progress',
-                attachments: ['Q1_Lead_Data.pdf']
-            },
-            {
-                id: 2,
-                title: 'Update Customer Database',
-                description: 'Clean and update the customer database by removing duplicates and validating contact information.',
-                assignees: [employees[2]],
-                assignedDate: '2024-01-20',
-                dueDate: '2024-02-05',
-                priority: 'medium',
-                progress: 30,
-                status: 'in-progress',
-                attachments: []
-            },
-            {
-                id: 3,
-                title: 'Prepare Monthly Sales Presentation',
-                description: 'Create a comprehensive presentation showcasing monthly sales performance and key metrics.',
-                assignees: [employees[3], employees[4]],
-                assignedDate: '2024-01-10',
-                dueDate: '2024-01-25',
-                priority: 'high',
-                progress: 90,
-                status: 'review',
-                attachments: ['Sales_Template.pptx']
-            }
-        ];
+      let tasks = []; // will be fetched dynamically via AJAX
+
+
 
         // Global variables
         let selectedEmployees = [];
-        let selectedPriority = '';
+       //let selectedPriority= document.getElementById('taskPriority').value = priority;
+       let selectedPriority='';
         let assignmentMode = 'individual';
         let editingTaskId = null;
 
         // DOM Ready
         document.addEventListener('DOMContentLoaded', function() {
-            initializePage();
+    fetchTasks(); // Load tasks from DB
+    initializePage();
+});
+
+function fetchTasks() {
+    console.log('Fetching tasks from /team-lead/tasks/assigned-tasks...');
+    fetch('/team-lead/tasks/assigned-tasks', {
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        }
+    })
+        .then(res => {
+            console.log('Response status:', res.status);
+            if (!res.ok) {
+                throw new Error(`HTTP error! Status: ${res.status}`);
+            }
+            return res.json();
+        })
+        .then(data => {
+            console.log('Fetched tasks data:', data);
+            tasks = data.map(task => ({
+                ...task,
+                assignees: task.assignees || [] // if you add `assignees` in future
+            }));
+            renderTasks();
+            updateStats();
+        })
+        .catch(err => {
+            console.error('Fetch error:', err);
+            showNotification('Failed to load tasks: ' + err.message, 'error');
         });
+}
+
 
         // Initialize page
         function initializePage() {
@@ -1218,7 +1261,7 @@
         function setDefaultDates() {
             const today = new Date();
             const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-            
+
             document.getElementById('assignedDate').value = today.toISOString().split('T')[0];
             document.getElementById('dueDate').value = nextWeek.toISOString().split('T')[0];
         }
@@ -1263,29 +1306,36 @@
         // Toggle assignment mode
         function toggleSelection(mode) {
             assignmentMode = mode;
-            
+
             // Update buttons
             document.getElementById('individualBtn').classList.toggle('active', mode === 'individual');
             document.getElementById('allBtn').classList.toggle('active', mode === 'all');
-            
+
             // Show/hide employee list
             document.getElementById('employeeList').classList.toggle('active', mode === 'individual');
             document.getElementById('allTeamMessage').style.display = mode === 'all' ? 'block' : 'none';
         }
 
-        // Select priority
-        function selectPriority(priority) {
-            // Remove active class from all options
-            document.querySelectorAll('.priority-option').forEach(option => {
-                option.classList.remove('active');
-            });
-            
-            // Add active class to selected option
-            document.querySelector(`.priority-option.${priority}`).classList.add('active');
-            
-            selectedPriority = priority;
-            document.getElementById('taskPriority').value = priority;
-        }
+
+function selectPriority(priority) {
+    // Remove 'active' class from all options
+    document.querySelectorAll('.priority-option').forEach(option => {
+        option.classList.remove('active');
+    });
+
+    // Add 'active' class to the selected option
+    const selectedOption = document.querySelector(`.priority-option.${priority}`);
+    if (selectedOption) {
+        selectedOption.classList.add('active');
+    }
+
+    // Update both the hidden input and the global variable ✅
+    selectedPriority = priority;
+    document.getElementById('taskPriority').value = priority;
+}
+
+
+
 
         // Update progress display
         function updateProgressDisplay() {
@@ -1310,109 +1360,132 @@
                     margin-bottom: 8px;
                     font-size: 14px;
                 `;
-                
+
                 fileItem.innerHTML = `
                     <i class="fas fa-file" style="color: #6b7280;"></i>
                     <span style="flex: 1; color: #1f2937;">${file.name}</span>
                     <span style="color: #6b7280; font-size: 12px;">${(file.size / 1024).toFixed(1)} KB</span>
                 `;
-                
+
                 fileList.appendChild(fileItem);
             });
         });
+        //submit task
+function submitTask(event) {
+    event.preventDefault();
 
-        // Submit task
-        function submitTask(event) {
-            event.preventDefault();
+    if (!validateForm()) return;
 
-            // Validate form
-            if (!validateForm()) {
-                return;
-            }
+    const formData = new FormData();
+    formData.append('title', document.getElementById('taskTitle').value);
+    formData.append('description', document.getElementById('taskDescription').value);
+    formData.append('assigned_date', document.getElementById('assignedDate').value);
+    formData.append('due_date', document.getElementById('dueDate').value);
+    formData.append('priority', selectedPriority);
+    formData.append('progress', document.getElementById('taskProgress').value);
+    formData.append('status', 'pending');
+    formData.append('target_type', assignmentMode);
 
-            // Get form data
-            const taskData = {
-                id: editingTaskId || Date.now(),
-                title: document.getElementById('taskTitle').value,
-                description: document.getElementById('taskDescription').value,
-                assignedDate: document.getElementById('assignedDate').value,
-                dueDate: document.getElementById('dueDate').value,
-                priority: selectedPriority,
-                progress: parseInt(document.getElementById('taskProgress').value),
-                status: 'pending',
-                assignees: assignmentMode === 'all' ? employees : employees.filter(emp => selectedEmployees.includes(emp.id)),
-                attachments: Array.from(document.getElementById('taskAttachments').files).map(file => file.name)
-            };
+    // ✅ Add ID only if updating
+    if (editingTaskId) {
+        formData.append('id', editingTaskId);
+    }
 
-            // Add or update task
-            if (editingTaskId) {
-                const taskIndex = tasks.findIndex(task => task.id === editingTaskId);
-                if (taskIndex !== -1) {
-                    tasks[taskIndex] = { ...tasks[taskIndex], ...taskData };
-                }
-            } else {
-                tasks.push(taskData);
-            }
+    // Attach employee IDs (if individual)
+    if (assignmentMode === 'individual') {
+        selectedEmployees.forEach(id => formData.append('employees[]', id));
+    }
 
-            // Reset form and update UI
-            resetForm();
-            renderTasks();
-            updateStats();
+    // Attach uploaded files
+    const files = document.getElementById('taskAttachments').files;
+    for (let i = 0; i < files.length; i++) {
+        formData.append('attachments[]', files[i]);
+    }
+
+    // ✅ Use a single route for both create and update
+    const url = '/team-lead/tasks/store';
+
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        },
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
             showSuccessModal();
+            fetchTasks();
+            resetForm();
+        } else {
+            showNotification(data.message || 'Something went wrong', 'error');
         }
+    })
+    .catch(() => showNotification('Task creation failed', 'error'));
+}
 
-        // Validate form
-        function validateForm() {
-            const title = document.getElementById('taskTitle').value.trim();
-            const description = document.getElementById('taskDescription').value.trim();
-            const assignedDate = document.getElementById('assignedDate').value;
-            const dueDate = document.getElementById('dueDate').value;
 
-            if (!title || !description || !assignedDate || !dueDate || !selectedPriority) {
-                showNotification('Please fill in all required fields', 'error');
-                return false;
-            }
+     //validate form
+     function validateForm() {
+    const title = document.getElementById('taskTitle').value.trim();
+    const description = document.getElementById('taskDescription').value.trim();
+    const assignedDate = document.getElementById('assignedDate').value;
+    const dueDate = document.getElementById('dueDate').value;
 
-            if (assignmentMode === 'individual' && selectedEmployees.length === 0) {
-                showNotification('Please select at least one employee', 'error');
-                return false;
-            }
 
-            if (new Date(dueDate) <= new Date(assignedDate)) {
-                showNotification('Due date must be after assigned date', 'error');
-                return false;
-            }
+    console.log({
+        title,
+        description,
+        assignedDate,
+        dueDate,
+        selectedPriority,
+    }); // 🧪 Logs all form values
 
-            return true;
-        }
+    if (!title || !description || !assignedDate || !dueDate || !selectedPriority) {
+        showNotification('Please fill in all required fields', 'error');
+        return false;
+    }
+
+    if (assignmentMode === 'individual' && selectedEmployees.length === 0) {
+        showNotification('Please select at least one employee', 'error');
+        return false;
+    }
+
+    if (new Date(dueDate) <= new Date(assignedDate)) {
+        showNotification('Due date must be after assigned date', 'error');
+        return false;
+    }
+
+    return true;
+}
 
         // Reset form
-        function resetForm() {
-            document.getElementById('taskForm').reset();
-            document.getElementById('taskId').value = '';
-            document.getElementById('formTitle').textContent = 'Create New Task';
-            document.getElementById('submitBtnText').textContent = 'Create Task';
-            
-            selectedEmployees = [];
-            selectedPriority = '';
-            editingTaskId = null;
-            
-            // Reset UI elements
-            document.querySelectorAll('.priority-option').forEach(option => {
-                option.classList.remove('active');
-            });
-            
-            document.querySelectorAll('.employee-checkbox').forEach(checkbox => {
-                checkbox.classList.remove('checked');
-            });
-            
-            document.getElementById('progressDisplay').textContent = '0%';
-            document.getElementById('fileList').innerHTML = '';
-            
-            setDefaultDates();
-            toggleSelection('individual');
-        }
+    function resetForm() {
+    document.getElementById('taskForm').reset();
+    document.getElementById('taskId').value = '';
+    document.getElementById('formTitle').textContent = 'Create New Task';
+    document.getElementById('submitBtnText').textContent = 'Create Task';
 
+    selectedEmployees = [];
+    selectedPriority = '';
+    editingTaskId = null;
+
+    // Reset UI elements
+    document.querySelectorAll('.priority-option').forEach(option => {
+        option.classList.remove('active');
+    });
+
+    document.querySelectorAll('.employee-checkbox').forEach(checkbox => {
+        checkbox.classList.remove('checked');
+    });
+
+    document.getElementById('progressDisplay').textContent = '0%';
+    document.getElementById('fileList').innerHTML = '';
+
+    setDefaultDates(); // This should reset dates
+    toggleSelection('individual');
+}
         // Render tasks
         function renderTasks() {
             const tasksGrid = document.getElementById('tasksGrid');
@@ -1431,9 +1504,17 @@
             tasks.forEach(task => {
                 const taskCard = document.createElement('div');
                 taskCard.className = 'task-card';
-                taskCard.onclick = () => editTask(task.id);
+               // Add action buttons
+const actionsHTML = `
+    <div class="task-actions" style="margin-top: 10px; display: flex; gap: 8px;">
+        <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); editTask(${task.id})">Edit</button>
+        <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); viewTask(${task.id})">View</button>
+    </div>
+`;
 
-                const dueDate = new Date(task.dueDate);
+
+                const dueDate = new Date(task.due_date);
+
                 const formattedDueDate = dueDate.toLocaleDateString('en-IN', {
                     day: 'numeric',
                     month: 'short'
@@ -1443,105 +1524,216 @@
                 const displayAssignees = task.assignees.slice(0, 3);
                 const remainingCount = Math.max(0, task.assignees.length - 3);
 
-                taskCard.innerHTML = `
-                    <div class="task-header">
-                        <div>
-                            <div class="task-title">${task.title}</div>
-                            <div class="task-id">#${task.id.toString().padStart(3, '0')}</div>
-                        </div>
-                        <div class="task-priority priority ${task.priority}">${task.priority}</div>
-                    </div>
-                    
-                    <div class="task-description">${task.description}</div>
-                    
-                    <div class="task-meta">
-                        <div class="task-assignees">
-                            <span style="font-size: 12px; color: #6b7280; margin-right: 8px;">Assigned to:</span>
-                            <div class="assignee-avatars">
-                                ${displayAssignees.map(assignee => `
-                                    <div class="assignee-avatar" title="${assignee.name}">${assignee.avatar}</div>
-                                `).join('')}
-                                ${remainingCount > 0 ? `<div class="more-assignees" title="${remainingCount} more">+${remainingCount}</div>` : ''}
-                            </div>
-                        </div>
-                        <div class="task-due-date">
-                            <i class="fas fa-calendar"></i>
-                            ${formattedDueDate}
-                        </div>
-                    </div>
-                    
-                    <div class="task-footer">
-                        <div class="task-status status ${task.status}">${task.status.replace('-', ' ')}</div>
-                        <div class="task-progress">
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="width: ${task.progress}%"></div>
-                            </div>
-                            <div class="progress-text">${task.progress}%</div>
-                        </div>
-                    </div>
-                `;
+               taskCard.innerHTML = `
+    <div class="task-header">
+        <div>
+            <div class="task-title">${task.title}</div>
+            <div class="task-id">#${task.id.toString().padStart(3, '0')}</div>
+        </div>
+        <div class="task-priority priority ${task.priority}">${task.priority}</div>
+    </div>
+
+    <div class="task-description">${task.description}</div>
+
+    <div class="task-meta">
+        <div class="task-assignees">
+            <span style="font-size: 12px; color: #6b7280; margin-right: 8px;">Assigned to:</span>
+            <div class="assignee-avatars">
+                ${displayAssignees.map(assignee => `
+                    <div class="assignee-avatar" title="${assignee.name}">${assignee.avatar}</div>
+                `).join('')}
+                ${remainingCount > 0 ? `<div class="more-assignees" title="${remainingCount} more">+${remainingCount}</div>` : ''}
+            </div>
+        </div>
+        <div class="task-due-date">
+            <i class="fas fa-calendar"></i>
+            ${formattedDueDate}
+        </div>
+    </div>
+
+    <div class="task-footer">
+        <div class="task-status status ${task.status}">${task.status.replace('-', ' ')}</div>
+        <div class="task-progress">
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: ${task.progress}%"></div>
+            </div>
+            <div class="progress-text">${task.progress}%</div>
+        </div>
+    </div>
+
+    <!-- ✅ Buttons added here -->
+    <div class="task-actions" style="margin-top: 10px; display: flex; gap: 8px;">
+        <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); editTask(${task.id})">Edit</button>
+        <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); viewTask(${task.id})">View</button>
+    </div>
+`;
 
                 tasksGrid.appendChild(taskCard);
             });
         }
 
-        // Edit task
-        function editTask(taskId) {
-            const task = tasks.find(t => t.id === taskId);
-            if (!task) return;
 
-            editingTaskId = taskId;
-            
-            // Populate form
-            document.getElementById('taskTitle').value = task.title;
-            document.getElementById('taskDescription').value = task.description;
-            document.getElementById('assignedDate').value = task.assignedDate;
-            document.getElementById('dueDate').value = task.dueDate;
-            document.getElementById('taskProgress').value = task.progress;
-            
-            // Update UI
-            document.getElementById('formTitle').textContent = 'Edit Task';
-            document.getElementById('submitBtnText').textContent = 'Update Task';
-            updateProgressDisplay();
-            
-            // Set priority
-            selectPriority(task.priority);
-            
-            // Set assignees
-            if (task.assignees.length === employees.length) {
-                toggleSelection('all');
+        function setDefaultDates() {
+    const today = new Date();
+    const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    document.getElementById('assignedDate').value = today.toISOString().split('T')[0];
+    document.getElementById('dueDate').value = nextWeek.toISOString().split('T')[0];
+}
+
+
+        function formatDate(dateStr) {
+    if (!dateStr) return ''; // Handle null/undefined
+
+    // Handle ISO 8601 format (e.g., "2025-07-01T18:30:00.000000Z")
+    if (typeof dateStr === 'string' && dateStr.includes('T')) {
+        return dateStr.split('T')[0]; // Extract "2025-07-01"
+    }
+
+    // Handle "DD MMM" or "DD MMM YYYY" format
+    const months = {
+        'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04',
+        'may': '05', 'jun': '06', 'jul': '07', 'aug': '08',
+        'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'
+    };
+
+    const parts = dateStr.toLowerCase().trim().split(/\s+/);
+    if (parts.length >= 2) {
+        let day = parts[0].replace(/[^0-9]/g, '');
+        const monthAbbr = parts[1].substring(0, 3);
+        let year = parts.length === 3 ? parts[2] : new Date().getFullYear(); // Default to current year
+
+        day = day.padStart(2, '0');
+        const month = months[monthAbbr] || '01'; // Default to January if invalid
+
+        const dateStrFormatted = `${year}-${month}-${day}`;
+        const date = new Date(dateStrFormatted);
+        return !isNaN(date) ? date.toISOString().split('T')[0] : '';
+    }
+
+    // Fallback to standard Date parsing
+    const date = new Date(dateStr);
+    return !isNaN(date) ? date.toISOString().split('T')[0] : '';
+}
+
+
+        // Edit task
+      function editTask(taskId) {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) {
+        console.error('Task not found for ID:', taskId);
+        showNotification('Task not found', 'error');
+        return;
+    }
+
+    console.log('Task object:', task); // Debug log
+
+    editingTaskId = taskId;
+
+    // Populate form
+    document.getElementById('taskTitle').value = task.title || '';
+    document.getElementById('taskDescription').value = task.description || '';
+    document.getElementById('taskProgress').value = task.progress || 0;
+    updateProgressDisplay();
+
+    // Set formatted dates
+    document.getElementById('assignedDate').value = formatDate(task.assigned_date);
+    document.getElementById('dueDate').value = formatDate(task.due_date);
+
+    // Set priority
+    selectPriority(task.priority);
+
+    // Set assignees
+    if (task.assignees.length === employees.length) {
+        toggleSelection('all');
+    } else {
+        toggleSelection('individual');
+        selectedEmployees = task.assignees.map(a => a.id);
+
+        employees.forEach(employee => {
+            const checkbox = document.getElementById(`checkbox-${employee.id}`);
+            if (selectedEmployees.includes(employee.id)) {
+                checkbox.classList.add('checked');
             } else {
-                toggleSelection('individual');
-                selectedEmployees = task.assignees.map(a => a.id);
-                
-                // Update checkboxes
-                employees.forEach(employee => {
-                    const checkbox = document.getElementById(`checkbox-${employee.id}`);
-                    if (selectedEmployees.includes(employee.id)) {
-                        checkbox.classList.add('checked');
-                    } else {
-                        checkbox.classList.remove('checked');
-                    }
-                });
+                checkbox.classList.remove('checked');
             }
-            
-            // Scroll to form
-            document.querySelector('.task-form-card').scrollIntoView({ behavior: 'smooth' });
-        }
+        });
+    }
+
+    // Update UI
+    document.getElementById('formTitle').textContent = 'Edit Task';
+    document.getElementById('submitBtnText').textContent = 'Update Task'; // Fixed typo
+
+    // Scroll to form
+    document.querySelector('.task-form-card').scrollIntoView({ behavior: 'smooth' });
+}
+
+     //view task
+     function viewTask(taskId) {
+    console.log("Attempting to view task ID:", taskId); // Debug log
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) {
+        console.error("Task not found for ID:", taskId);
+        showNotification('Task not found', 'error');
+        return;
+    }
+
+    console.log("Task found:", task); // Debug log
+
+    // Populate modal fields
+    document.getElementById('viewTaskTitle').textContent = task.title || 'No Title';
+    document.getElementById('viewTaskDescription').textContent = task.description || 'No Description';
+    document.getElementById('viewTaskAssignedDate').textContent = task.assigned_date || 'N/A';
+    document.getElementById('viewTaskDueDate').textContent = task.due_date || 'N/A';
+    document.getElementById('viewTaskPriority').textContent = task.priority || 'N/A';
+    document.getElementById('viewTaskStatus').textContent = task.status || 'N/A';
+    document.getElementById('viewTaskProgress').textContent = task.progress || '0';
+
+    const assigneeList = document.getElementById('viewTaskAssignees');
+    assigneeList.innerHTML = '';
+    (task.assignees || []).forEach(assignee => {
+        const li = document.createElement('li');
+        li.textContent = assignee.name || 'Unknown';
+        assigneeList.appendChild(li);
+    });
+
+    const attachmentList = document.getElementById('viewTaskAttachments');
+    attachmentList.innerHTML = '';
+    (task.attachments || []).forEach(file => {
+        const li = document.createElement('li');
+        const link = document.createElement('a');
+        link.href = `/storage/${file}`;
+        link.target = '_blank';
+        link.textContent = file.split('/').pop() || 'Unnamed File';
+        li.appendChild(link);
+        attachmentList.appendChild(li);
+    });
+
+    // Show modal
+    const modal = document.getElementById('viewTaskModal');
+    modal.style.display = 'flex';
+    modal.classList.add('active'); // Add active class for CSS consistency
+    modal.scrollIntoView({ behavior: 'smooth' });
+}
+//close modal
+function closeViewModal() {
+    document.getElementById('viewTaskModal').style.display = 'none';
+}
+
 
         // Filter tasks
         function filterTasks() {
             const searchTerm = document.querySelector('.search-input').value.toLowerCase();
             const statusFilter = document.querySelector('.filter-btn').value;
-            
+
             const filteredTasks = tasks.filter(task => {
-                const matchesSearch = task.title.toLowerCase().includes(searchTerm) || 
+                const matchesSearch = task.title.toLowerCase().includes(searchTerm) ||
                                     task.description.toLowerCase().includes(searchTerm);
                 const matchesStatus = !statusFilter || task.status === statusFilter;
-                
+
                 return matchesSearch && matchesStatus;
             });
-            
+
             // Re-render with filtered tasks
             const originalTasks = [...tasks];
             tasks = filteredTasks;
